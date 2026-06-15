@@ -1,0 +1,19 @@
+# Binaries
+/cortex
+/cortex.exe
+
+# Database/Data files
+*.kv
+*.db
+
+# Logs
+*.log
+!test_healthy.log
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
