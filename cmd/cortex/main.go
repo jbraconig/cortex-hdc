@@ -11,6 +11,7 @@ import (
 	"github.com/jbraconig/cortex-hdc/internal/config"
 	"github.com/jbraconig/cortex-hdc/internal/infrastructure/hdc"
 	"github.com/jbraconig/cortex-hdc/internal/infrastructure/logreader"
+	"github.com/jbraconig/cortex-hdc/internal/infrastructure/metrics"
 	"github.com/jbraconig/cortex-hdc/internal/infrastructure/notifier"
 	"github.com/jbraconig/cortex-hdc/internal/infrastructure/storage"
 	"github.com/jbraconig/cortex-hdc/internal/usecase"
@@ -68,6 +69,7 @@ func main() {
 		workersFlag := inferCmd.Int("workers", 4, "Number of goroutines for the worker pool")
 		thresholdFlag := inferCmd.Float64("threshold", 0.65, "Similarity threshold (0.0 - 1.0) below which an alert is triggered")
 		webhookFlag := inferCmd.String("webhook", "", "Webhook URL to send HTTP JSON alerts (optional)")
+		verboseFlag := inferCmd.Bool("verbose", false, "Print all log lines, not just anomalies")
 		inferCmd.Parse(os.Args[2:])
 
 		// Verify which flags were explicitly provided
@@ -75,6 +77,8 @@ func main() {
 		workers := cfg.Workers
 		threshold := cfg.Threshold
 		webhook := cfg.Webhook
+		verbose := cfg.Verbose
+		metricsPort := cfg.MetricsPort
 
 		inferCmd.Visit(func(f *flag.Flag) {
 			switch f.Name {
@@ -86,6 +90,8 @@ func main() {
 				threshold = *thresholdFlag
 			case "webhook":
 				webhook = *webhookFlag
+			case "verbose":
+				verbose = *verboseFlag
 			}
 		})
 
@@ -102,9 +108,12 @@ func main() {
 			os.Exit(1)
 		}
 
+		// Initialize Prometheus Metrics
+		metrics.InitMetrics(metricsPort)
+
 		reader := logreader.NewRobustTailReader()
 		httpNotifier := notifier.NewHTTPNotifier(webhook)
-		inference := usecase.NewInference(encoder, reader, httpNotifier, threshold)
+		inference := usecase.NewInference(encoder, reader, httpNotifier, threshold, verbose)
 
 		// Context for Graceful Shutdown
 		ctx, cancel := context.WithCancel(context.Background())
@@ -140,5 +149,5 @@ func printUsage() {
 	fmt.Println("  train    Trains the baseline from a healthy log.")
 	fmt.Println("           Ex: cortex train --file /var/log/syslog.healthy")
 	fmt.Println("  infer    Runs real-time analysis.")
-	fmt.Println("           Ex: cortex infer --file /var/log/syslog --workers 8 --threshold 0.65 --webhook http://...")
+	fmt.Println("           Ex: cortex infer --file /var/log/syslog --workers 8 --threshold 0.65 --webhook http://... --verbose")
 }

@@ -6,10 +6,12 @@ import (
 
 // Config stores all application configuration
 type Config struct {
-	Workers   int     `mapstructure:"workers"`
-	Threshold float64 `mapstructure:"threshold"`
-	Webhook   string  `mapstructure:"webhook"`
-	File      string  `mapstructure:"file"`
+	Workers     int     `mapstructure:"workers"`
+	Threshold   float64 `mapstructure:"threshold"`
+	Webhook     string  `mapstructure:"webhook"`
+	File        string  `mapstructure:"file"`
+	Verbose     bool    `mapstructure:"verbose"`
+	MetricsPort int     `mapstructure:"metrics_port"`
 }
 
 // LoadConfig reads configuration from environment variables prefixed with CORTEX_*
@@ -19,6 +21,8 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("threshold", 0.65)
 	viper.SetDefault("webhook", "")
 	viper.SetDefault("file", "")
+	viper.SetDefault("verbose", false)
+	viper.SetDefault("metrics_port", 9090)
 
 	// Allow reading from environment variables with CORTEX prefix (e.g., CORTEX_WORKERS)
 	viper.SetEnvPrefix("CORTEX")

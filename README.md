@@ -68,6 +68,48 @@ Once the model is trained, start the real-time analysis (`tail -f` mode) pointin
 - `--workers` *(optional, default 4)*: Number of concurrent goroutines assigned to process log lines simultaneously.
 - `--threshold` *(optional, default 0.65)*: Minimum mathematical similarity level required (0.0 to 1.0). If a log line's similarity to the healthy signature is below this threshold, it is treated as an anomaly.
 - `--webhook` *(optional)*: HTTP POST endpoint (JSON format) where anomaly alerts will be dispatched.
+- `--verbose` *(optional)*: Prints all log lines, not just anomalies. Normal lines in gray, anomalies in red.
+
+---
+
+## 🐳 Docker Quick Start
+
+The easiest way to run Cortex-HDC without installing Go is via Docker.
+
+### Running with Docker Compose
+
+An example `docker-compose.yml` is provided in `deploy/docker-compose.yml`.
+
+1. Copy the file or run it from the repository root.
+2. It mounts the host's `/var/log` into `/data/logs` inside the container.
+3. Start the engine:
+
+```bash
+docker compose up -d
+```
+
+### Building the Image Locally
+
+```bash
+docker build -t cortex-hdc .
+```
+
+### Running Inference via Docker CLI
+
+```bash
+docker run --rm -d \
+  -v /var/log:/host/logs:ro \
+  -v $(pwd)/cortex.kv:/data/cortex.kv \
+  -p 9090:9090 \
+  cortex-hdc infer --file /host/logs/syslog --verbose
+```
+
+---
+
+## Observability & Metrics
+
+Cortex exposes internal metrics via a Prometheus exporter running on port `9090` at the `/metrics` endpoint.
+It tracks the total logs processed, anomalies detected, and memory consumption.
 
 ---
 

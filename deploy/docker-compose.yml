@@ -1,0 +1,15 @@
+services:
+  cortex:
+    image: ghcr.io/jbraconig/cortex-hdc:latest
+    # build: ..  # Uncomment to build locally
+    command: ["infer", "--file", "/data/logs/syslog", "--verbose"]
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./data:/data          # Cortex database persistence
+      - /var/log:/data/logs:ro  # Mount host logs as read-only
+    environment:
+      - CORTEX_WORKERS=8
+      - CORTEX_THRESHOLD=0.65
+      # - CORTEX_WEBHOOK=http://alertmanager:9093/api/v2/alerts
+    restart: unless-stopped

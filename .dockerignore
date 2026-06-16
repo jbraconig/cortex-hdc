@@ -1,0 +1,12 @@
+.git
+cortex
+cortex.exe
+*.kv
+*.log
+*.db
+.idea/
+.vscode/
+.DS_Store
+README.md
+ROADMAP.md
+LICENSE

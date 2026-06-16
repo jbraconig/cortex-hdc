@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: cortex-hdc
+  namespace: default
+  labels:
+    app: cortex-hdc
+spec:
+  selector:
+    matchLabels:
+      app: cortex-hdc
+  template:
+    metadata:
+      labels:
+        app: cortex-hdc
+    spec:
+      containers:
+      - name: cortex-hdc
+        image: ghcr.io/jbraconig/cortex-hdc:latest
+        imagePullPolicy: Always
+        args: ["infer", "--file", "/host/var/log/syslog"]
+        envFrom:
+        - configMapRef:
+            name: cortex-config
+        ports:
+        - containerPort: 9090
+          name: metrics
+        volumeMounts:
+        - name: host-logs
+          mountPath: /host/var/log
+          readOnly: true
+        - name: cortex-data
+          mountPath: /data
+      volumes:
+      - name: host-logs
+        hostPath:
+          path: /var/log
+      - name: cortex-data
+        hostPath:
+          path: /var/lib/cortex-hdc
+          type: DirectoryOrCreate

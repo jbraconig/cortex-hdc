@@ -10,10 +10,10 @@ This document details the path forward to take Cortex-HDC from a functional prot
 
 ## Phase 2: Observability and Integration (Medium Priority)
 
-- [ ] **Live Log Viewer (Terminal/TUI)**: Create a pure terminal-based interface (using libraries like `bubbletea` or plain ANSI colors) where logs can be viewed streaming in real time, instantly coloring anomalies in red along with their similarity percentage, without depending on web browsers.
-- [ ] **Internal Metrics (Prometheus Endpoint)**: Expose a server on port `9090` with a `/metrics` endpoint to visualize Cortex performance (lines processed per second, RAM consumption, similarity averages).
-- [ ] **Packaging (Dockerization)**: Create a multi-stage `Dockerfile` to generate an ultra-lightweight base image (`scratch` or `alpine`), reducing the container size to ~15MB.
-- [ ] **Deployment Manifests**: Generate example `docker-compose.yml` and Kubernetes manifests (`DaemonSet` / `Deployment`) to facilitate plug-and-play installation.
+- [x] **Live Log Viewer (Terminal/TUI)**: Create a pure terminal-based interface (using libraries like `bubbletea` or plain ANSI colors) where logs can be viewed streaming in real time, instantly coloring anomalies in red along with their similarity percentage, without depending on web browsers.
+- [x] **Internal Metrics (Prometheus Endpoint)**: Expose a server on port `9090` with a `/metrics` endpoint to visualize Cortex performance (lines processed per second, RAM consumption, similarity averages).
+- [x] **Packaging (Dockerization)**: Create a multi-stage `Dockerfile` to generate an ultra-lightweight base image (`scratch` or `alpine`), reducing the container size to ~15MB.
+- [x] **Deployment Manifests**: Generate example `docker-compose.yml` and Kubernetes manifests (`DaemonSet` / `Deployment`) to facilitate plug-and-play installation.
 
 ## Phase 3: Mathematical Evolution (Advanced)
 
