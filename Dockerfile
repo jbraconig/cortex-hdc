@@ -18,4 +18,7 @@ COPY --from=builder /cortex /usr/local/bin/cortex
 
 WORKDIR /data
 
+RUN mkdir -p /data/init-logs
+
 ENTRYPOINT ["cortex"]
+CMD ["auto", "--file", "/data/logs/syslog", "--verbose"]

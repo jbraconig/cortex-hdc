@@ -12,6 +12,7 @@ type Config struct {
 	File        string  `mapstructure:"file"`
 	Verbose     bool    `mapstructure:"verbose"`
 	MetricsPort int     `mapstructure:"metrics_port"`
+	InitLogs    string  `mapstructure:"init_logs"`
 }
 
 // LoadConfig reads configuration from environment variables prefixed with CORTEX_*
@@ -23,6 +24,7 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("file", "")
 	viper.SetDefault("verbose", false)
 	viper.SetDefault("metrics_port", 9090)
+	viper.SetDefault("init_logs", "/data/init-logs/")
 
 	// Allow reading from environment variables with CORTEX prefix (e.g., CORTEX_WORKERS)
 	viper.SetEnvPrefix("CORTEX")

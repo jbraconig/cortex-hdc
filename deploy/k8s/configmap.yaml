@@ -6,4 +6,5 @@ metadata:
 data:
   CORTEX_WORKERS: "4"
   CORTEX_THRESHOLD: "0.65"
+  CORTEX_INIT_LOGS: "/data/init-logs/"
   # CORTEX_WEBHOOK: "http://alertmanager.monitoring.svc.cluster.local:9093/api/v2/alerts"

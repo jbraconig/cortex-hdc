@@ -18,7 +18,7 @@ spec:
       - name: cortex-hdc
         image: ghcr.io/jbraconig/cortex-hdc:latest
         imagePullPolicy: Always
-        args: ["infer", "--file", "/host/var/log/syslog"]
+        args: ["auto", "--file", "/host/var/log/syslog"]
         envFrom:
         - configMapRef:
             name: cortex-config
@@ -29,12 +29,19 @@ spec:
         - name: host-logs
           mountPath: /host/var/log
           readOnly: true
+        - name: init-logs
+          mountPath: /data/init-logs
+          readOnly: true
         - name: cortex-data
           mountPath: /data
       volumes:
       - name: host-logs
         hostPath:
           path: /var/log
+      - name: init-logs
+        configMap:
+          name: cortex-init-logs
+          optional: true
       - name: cortex-data
         hostPath:
           path: /var/lib/cortex-hdc

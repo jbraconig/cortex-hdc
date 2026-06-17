@@ -62,6 +62,14 @@ Once the model is trained, start the real-time analysis (`tail -f` mode) pointin
 ./cortex infer --file /var/log/syslog --workers 8 --threshold 0.65 --webhook http://your-alertmanager:9093/api/v2/alerts
 ```
 
+### 4. Auto Mode (Train + Infer)
+
+If you want the engine to automatically train on the first run if the knowledge base doesn't exist, use the `auto` command. It will scan the directory provided in `--init-logs` (default: `/data/init-logs/`) and train on all log files found before starting inference.
+
+```bash
+./cortex auto --file /var/log/syslog --init-logs /path/to/baseline/logs/
+```
+
 #### Inference Flags
 
 - `--file`: The path to the live log file to monitor.
@@ -82,7 +90,8 @@ An example `docker-compose.yml` is provided in `deploy/docker-compose.yml`.
 
 1. Copy the file or run it from the repository root.
 2. It mounts the host's `/var/log` into `/data/logs` inside the container.
-3. Start the engine:
+3. (Optional) Mount your healthy baseline logs into `./init-logs`. The container will automatically train on these logs on its first boot if `cortex.kv` is missing.
+4. Start the engine:
 
 ```bash
 docker compose up -d

@@ -2,12 +2,13 @@ services:
   cortex:
     image: ghcr.io/jbraconig/cortex-hdc:latest
     # build: ..  # Uncomment to build locally
-    command: ["infer", "--file", "/data/logs/syslog", "--verbose"]
+    # command: ["auto", "--file", "/data/logs/syslog", "--verbose"]  # Default CMD
     ports:
       - "9090:9090"
     volumes:
-      - ./data:/data          # Cortex database persistence
-      - /var/log:/data/logs:ro  # Mount host logs as read-only
+      - ./data:/data                    # Cortex database persistence
+      - ./init-logs:/data/init-logs:ro  # Mount healthy baseline logs here
+      - /var/log:/data/logs:ro          # Mount host logs as read-only
     environment:
       - CORTEX_WORKERS=8
       - CORTEX_THRESHOLD=0.65
