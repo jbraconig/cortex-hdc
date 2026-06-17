@@ -8,7 +8,6 @@
 
 # Logs
 *.log
-!test_healthy.log
 
 # IDE / Editor
 .idea/
