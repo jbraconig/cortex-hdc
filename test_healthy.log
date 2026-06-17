@@ -1,8 +1,0 @@
-2026-06-08T10:00:00Z INFO [system] Starting background process user_id=admin session=xyz
-2026-06-08T10:00:01Z DEBUG [db] Connected to database 192.168.1.100 pool=5
-2026-06-08T10:00:02Z INFO [auth] User logged in successful uid=1024
-2026-06-08T10:00:03Z INFO [api] Request GET /users/1024 status=200 duration=15ms
-2026-06-08T10:00:04Z INFO [worker] Processed task id=555 queue=default
-2026-06-08T10:00:05Z DEBUG [cache] Hit miss ratio 0.98 mem=45MB
-2026-06-08T10:00:06Z INFO [system] Cron job cleanup finished success
-2026-06-08T10:00:07Z INFO [api] Request POST /orders status=201 duration=45ms
