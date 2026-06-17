@@ -13,6 +13,8 @@ type Config struct {
 	Verbose     bool    `mapstructure:"verbose"`
 	MetricsPort int     `mapstructure:"metrics_port"`
 	InitLogs    string  `mapstructure:"init_logs"`
+	Clusters    int     `mapstructure:"clusters"`   // Phase 3.1: 0=single baseline, >=2=multi-cluster
+	DecayRate   float64 `mapstructure:"decay_rate"` // Phase 3.3: 0=disabled, 0.001=slow, 0.01=moderate
 }
 
 // LoadConfig reads configuration from environment variables prefixed with CORTEX_*
@@ -25,6 +27,8 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("verbose", false)
 	viper.SetDefault("metrics_port", 9090)
 	viper.SetDefault("init_logs", "/data/init-logs/")
+	viper.SetDefault("clusters", 0)
+	viper.SetDefault("decay_rate", 0.0)
 
 	// Allow reading from environment variables with CORTEX prefix (e.g., CORTEX_WORKERS)
 	viper.SetEnvPrefix("CORTEX")

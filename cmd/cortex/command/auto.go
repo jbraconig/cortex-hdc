@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/jbraconig/cortex-hdc/internal/config"
 	"github.com/jbraconig/cortex-hdc/internal/infrastructure/logreader"
@@ -21,6 +22,8 @@ type AutoCommand struct {
 	verbose     bool
 	metricsPort int
 	initLogs    string
+	clusters    int
+	decayRate   float64
 }
 
 func (c *AutoCommand) Name() string {
@@ -35,6 +38,8 @@ func (c *AutoCommand) Parse(args []string, cfg *config.Config) {
 	webhookFlag := autoCmd.String("webhook", "", "Webhook URL to send HTTP JSON alerts (optional)")
 	verboseFlag := autoCmd.Bool("verbose", false, "Print all log lines, not just anomalies")
 	initLogsFlag := autoCmd.String("init-logs", "/data/init-logs/", "Directory containing baseline logs for auto-training")
+	clustersFlag := autoCmd.Int("clusters", 0, "Number of baseline clusters (0=single, >=2=multi-cluster)")
+	decayRateFlag := autoCmd.Float64("decay-rate", 0, "Decay rate for gradual baseline adaptation (0=disabled, 0.001=slow, 0.01=moderate)")
 	autoCmd.Parse(args)
 
 	c.file = cfg.File
@@ -44,6 +49,8 @@ func (c *AutoCommand) Parse(args []string, cfg *config.Config) {
 	c.verbose = cfg.Verbose
 	c.metricsPort = cfg.MetricsPort
 	c.initLogs = cfg.InitLogs
+	c.clusters = cfg.Clusters
+	c.decayRate = cfg.DecayRate
 
 	autoCmd.Visit(func(f *flag.Flag) {
 		switch f.Name {
@@ -59,6 +66,10 @@ func (c *AutoCommand) Parse(args []string, cfg *config.Config) {
 			c.verbose = *verboseFlag
 		case "init-logs":
 			c.initLogs = *initLogsFlag
+		case "clusters":
+			c.clusters = *clustersFlag
+		case "decay-rate":
+			c.decayRate = *decayRateFlag
 		}
 	})
 
@@ -70,13 +81,13 @@ func (c *AutoCommand) Parse(args []string, cfg *config.Config) {
 }
 
 func (c *AutoCommand) Execute(deps Dependencies) error {
-	dbFile := "cortex.kv"
+	const dbFile = "cortex.kv"
 
 	if _, err := os.Stat(dbFile); os.IsNotExist(err) {
 		fmt.Printf("[CORTEX] No knowledge base found at %s. Auto-training from %s ...\n", dbFile, c.initLogs)
 		if info, err := os.Stat(c.initLogs); err == nil && info.IsDir() {
 			trainer := usecase.NewTrainer(deps.Encoder, deps.Store)
-			if err := trainer.TrainFromDirectory(c.initLogs, dbFile); err != nil {
+			if err := trainer.TrainFromDirectory(c.initLogs, dbFile, c.clusters); err != nil {
 				fmt.Printf("Error during auto-training: %v\n", err)
 				os.Exit(1)
 			}
@@ -94,12 +105,33 @@ func (c *AutoCommand) Execute(deps Dependencies) error {
 		os.Exit(1)
 	}
 
+	// Honor auto-tuned threshold if no explicit threshold was provided
+	if kb.SuggestedThreshold > 0 && c.threshold == 0.65 {
+		fmt.Printf("[AUTO-TUNE] Using stored suggested threshold: %.4f\n", kb.SuggestedThreshold)
+		c.threshold = kb.SuggestedThreshold
+	}
+
 	metrics.InitMetrics(c.metricsPort)
 	reader := logreader.NewRobustTailReader()
 	httpNotifier := notifier.NewHTTPNotifier(c.webhook)
-	inference := usecase.NewInference(deps.Encoder, reader, httpNotifier, c.threshold, c.verbose)
+	inference := usecase.NewInference(deps.Encoder, reader, httpNotifier, deps.Store, c.threshold, c.verbose, c.decayRate)
+
+	// Parse comma-separated files
+	rawPaths := strings.Split(c.file, ",")
+	var logFiles []string
+	for _, p := range rawPaths {
+		trimmed := strings.TrimSpace(p)
+		if trimmed != "" {
+			logFiles = append(logFiles, trimmed)
+		}
+	}
+
+	if len(logFiles) == 0 {
+		fmt.Println("Error: Specifying at least one log file via --file or CORTEX_FILE environment variable is required")
+		os.Exit(1)
+	}
 
 	return RunWithGracefulShutdown(func(ctx context.Context) error {
-		return inference.Run(ctx, kb, c.file, c.workers)
+		return inference.Run(ctx, kb, logFiles, c.workers, dbFile)
 	})
 }

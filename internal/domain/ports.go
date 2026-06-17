@@ -9,7 +9,7 @@ type Encoder interface {
 
 // LogReader defines a producer of continuous logs
 type LogReader interface {
-	ReadLogs(ctx context.Context, filepath string) (<-chan string, error)
+	ReadLogs(ctx context.Context, filePaths []string) (<-chan string, error)
 }
 
 // Persistence defines how to save and retrieve knowledge (KnowledgeBase)

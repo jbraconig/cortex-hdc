@@ -17,9 +17,9 @@ This document details the path forward to take Cortex-HDC from a functional prot
 
 ## Phase 3: Mathematical Evolution (Advanced)
 
-- [ ] **Baseline Clustering (Avoid Saturation)**: Modify the training process. If logs are highly diverse, a single vector will become saturated with `1`s. Implement an algorithm that partitions the "healthy state" into $K$ baseline vectors depending on the log type detected during training.
-- [ ] **Auto-Tuning**: Allow the training phase to automatically suggest the ideal threshold by calculating the standard variance of the analyzed vectors.
-- [ ] **Memory Decay (Gradual Forgetting)**: For constantly evolving systems, implement a mechanism where the Baseline adapts slightly to new healthy logs in production, gradually forgetting very old patterns.
+- [x] **Baseline Clustering (Avoid Saturation)**: Modify the training process. If logs are highly diverse, a single vector will become saturated with `1`s. Implement an algorithm that partitions the "healthy state" into $K$ baseline vectors depending on the log type detected during training.
+- [x] **Auto-Tuning**: Allow the training phase to automatically suggest the ideal threshold by calculating the standard variance of the analyzed vectors.
+- [x] **Memory Decay (Gradual Forgetting)**: For constantly evolving systems, implement a mechanism where the Baseline adapts slightly to new healthy logs in production, gradually forgetting very old patterns.
 
 ## Phase 4: Optimization and Noise Filtering
 

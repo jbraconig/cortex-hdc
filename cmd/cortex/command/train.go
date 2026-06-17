@@ -10,7 +10,8 @@ import (
 )
 
 type TrainCommand struct {
-	file string
+	file     string
+	clusters int
 }
 
 func (c *TrainCommand) Name() string {
@@ -20,12 +21,17 @@ func (c *TrainCommand) Name() string {
 func (c *TrainCommand) Parse(args []string, cfg *config.Config) {
 	trainCmd := flag.NewFlagSet("train", flag.ExitOnError)
 	fileFlag := trainCmd.String("file", "", "Path to the healthy log file to train the baseline")
+	clustersFlag := trainCmd.Int("clusters", 0, "Number of baseline clusters (0=single, >=2=multi-cluster)")
 	trainCmd.Parse(args)
 
 	c.file = cfg.File
+	c.clusters = cfg.Clusters
 	trainCmd.Visit(func(f *flag.Flag) {
-		if f.Name == "file" {
+		switch f.Name {
+		case "file":
 			c.file = *fileFlag
+		case "clusters":
+			c.clusters = *clustersFlag
 		}
 	})
 
@@ -38,5 +44,5 @@ func (c *TrainCommand) Parse(args []string, cfg *config.Config) {
 
 func (c *TrainCommand) Execute(deps Dependencies) error {
 	trainer := usecase.NewTrainer(deps.Encoder, deps.Store)
-	return trainer.TrainFromFile(c.file, "cortex.kv")
+	return trainer.TrainFromFile(c.file, "cortex.kv", c.clusters)
 }

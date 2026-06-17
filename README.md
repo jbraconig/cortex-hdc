@@ -48,18 +48,19 @@ This will generate a native binary named `cortex` in the root of the project.
 For the engine to know what an anomaly is, it must first learn what is "normal". Provide a massive log file containing the healthy (typical) behavior of your system.
 
 ```bash
-./cortex train --file /path/to/your/healthy.log
+./cortex train --file /path/to/your/healthy.log --clusters 3
 ```
 
-- This process reads the log, vectorizes each line, combines them (`Bundle`), and generates a master signature (`Baseline`).
-- The trained model will be saved in the persistent database file `cortex.kv`.
+- This process reads the log, vectorizes each line, applies K-Means clustering (if `--clusters >= 2`), and generates mathematical signatures (`Baselines`).
+- It automatically performs a statistical pass (Auto-Tuning) to calculate the standard deviation and suggest the optimal `--threshold`.
+- The trained model and the suggested threshold will be saved in the persistent database file `cortex.kv`.
 
 ### 3. Inference Phase (Real-Time)
 
-Once the model is trained, start the real-time analysis (`tail -f` mode) pointing to your live production log stream.
+Once the model is trained, start the real-time analysis (`tail -f` mode) pointing to your live production log stream. You can monitor multiple files concurrently by separating them with commas.
 
 ```bash
-./cortex infer --file /var/log/syslog --workers 8 --threshold 0.65 --webhook http://your-alertmanager:9093/api/v2/alerts
+./cortex infer --file /var/log/syslog,/var/log/nginx/access.log --workers 8 --threshold 0.65 --decay-rate 0.001 --webhook http://your-alertmanager:9093/api/v2/alerts
 ```
 
 ### 4. Auto Mode (Train + Infer)
@@ -67,14 +68,16 @@ Once the model is trained, start the real-time analysis (`tail -f` mode) pointin
 If you want the engine to automatically train on the first run if the knowledge base doesn't exist, use the `auto` command. It will scan the directory provided in `--init-logs` (default: `/data/init-logs/`) and train on all log files found before starting inference.
 
 ```bash
-./cortex auto --file /var/log/syslog --init-logs /path/to/baseline/logs/
+./cortex auto --file /var/log/syslog,/var/log/mysql.log --init-logs /path/to/baseline/logs/ --clusters 3
 ```
 
 #### Inference Flags
 
-- `--file`: The path to the live log file to monitor.
+- `--file`: The path to the live log file(s) to monitor. Separate multiple files with commas for high-performance concurrent tailing.
 - `--workers` *(optional, default 4)*: Number of concurrent goroutines assigned to process log lines simultaneously.
-- `--threshold` *(optional, default 0.65)*: Minimum mathematical similarity level required (0.0 to 1.0). If a log line's similarity to the healthy signature is below this threshold, it is treated as an anomaly.
+- `--clusters` *(optional, default 0)*: Use K-Means clustering to generate $K$ distinct baselines. Essential when training with highly diverse log formats to avoid vector saturation.
+- `--threshold` *(optional, default 0.65)*: Minimum mathematical similarity level required (0.0 to 1.0). If not provided, Cortex will automatically use the optimal threshold suggested during training.
+- `--decay-rate` *(optional, default 0.0)*: Memory Decay rate (e.g., `0.01`). Allows the baseline to gradually adapt to new healthy logs in production using Exponential Moving Average, avoiding obsolescence.
 - `--webhook` *(optional)*: HTTP POST endpoint (JSON format) where anomaly alerts will be dispatched.
 - `--verbose` *(optional)*: Prints all log lines, not just anomalies. Normal lines in gray, anomalies in red.
 
@@ -110,7 +113,7 @@ docker run --rm -d \
   -v /var/log:/host/logs:ro \
   -v $(pwd)/cortex.kv:/data/cortex.kv \
   -p 9090:9090 \
-  cortex-hdc infer --file /host/logs/syslog --verbose
+  cortex-hdc infer --file /host/logs/syslog,/host/logs/nginx.log --decay-rate 0.001 --verbose
 ```
 
 ---
