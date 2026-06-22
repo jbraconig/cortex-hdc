@@ -6,15 +6,18 @@ import (
 
 // Config stores all application configuration
 type Config struct {
-	Workers     int     `mapstructure:"workers"`
-	Threshold   float64 `mapstructure:"threshold"`
-	Webhook     string  `mapstructure:"webhook"`
-	File        string  `mapstructure:"file"`
-	Verbose     bool    `mapstructure:"verbose"`
-	MetricsPort int     `mapstructure:"metrics_port"`
-	InitLogs    string  `mapstructure:"init_logs"`
-	Clusters    int     `mapstructure:"clusters"`   // Phase 3.1: 0=single baseline, >=2=multi-cluster
-	DecayRate   float64 `mapstructure:"decay_rate"` // Phase 3.3: 0=disabled, 0.001=slow, 0.01=moderate
+	Workers      int     `mapstructure:"workers"`
+	Threshold    float64 `mapstructure:"threshold"`
+	Webhook      string  `mapstructure:"webhook"`
+	File         string  `mapstructure:"file"`
+	Verbose      bool    `mapstructure:"verbose"`
+	MetricsPort  int     `mapstructure:"metrics_port"`
+	InitLogs     string  `mapstructure:"init_logs"`
+	Clusters     int     `mapstructure:"clusters"`       // Phase 3.1: 0=single baseline, >=2=multi-cluster
+	DecayRate    float64 `mapstructure:"decay_rate"`     // Phase 3.3: 0=disabled, 0.001=slow, 0.01=moderate
+	P2P          bool    `mapstructure:"p2p"`            // Phase 4.3: Enable P2P baseline synchronization
+	P2PBindPort  int     `mapstructure:"p2p_bind_port"`  // Phase 4.3: Port for gossip communication (default 7946)
+	P2PJoinAddrs string  `mapstructure:"p2p_join_addrs"` // Phase 4.3: Comma-separated addresses to join clúster (e.g. "10.0.0.1:7946,10.0.0.2:7946")
 }
 
 // LoadConfig reads configuration from environment variables prefixed with CORTEX_*
@@ -29,6 +32,9 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("init_logs", "/data/init-logs/")
 	viper.SetDefault("clusters", 0)
 	viper.SetDefault("decay_rate", 0.0)
+	viper.SetDefault("p2p", false)
+	viper.SetDefault("p2p_bind_port", 7946)
+	viper.SetDefault("p2p_join_addrs", "")
 
 	// Allow reading from environment variables with CORTEX prefix (e.g., CORTEX_WORKERS)
 	viper.SetEnvPrefix("CORTEX")

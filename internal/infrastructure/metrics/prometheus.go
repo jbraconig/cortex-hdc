@@ -3,6 +3,7 @@ package metrics
 import (
 	"log"
 	"net/http"
+	_ "net/http/pprof"
 	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"

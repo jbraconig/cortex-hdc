@@ -23,6 +23,13 @@ This document details the path forward to take Cortex-HDC from a functional prot
 
 ## Phase 4: Optimization and Noise Filtering
 
-- [ ] **Timestamp Cleaning (Pre-processing)**: Although HDC tolerates noise, dynamically removing or masking the initial dates/times from log lines before passing them to the `Encoder` will drastically increase accuracy, since the timestamp is pure noise that changes every second.
-- [ ] **Memory Profiling (pprof)**: Integrate `net/http/pprof` to monitor in real-time whether Go's Garbage Collector is struggling under extreme loads (e.g., 100,000 logs per second) and optimize `HVector` memory allocation.
-- [ ] **Distributed Synchronization (Gossip Protocol)**: If you run 50 instances of Cortex on 50 servers, implement a lightweight P2P protocol for them to share and unify their learned Baselines without needing a central database.
+- [x] **Timestamp Cleaning (Pre-processing)**: Although HDC tolerates noise, dynamically removing or masking the initial dates/times from log lines before passing them to the `Encoder` will drastically increase accuracy, since the timestamp is pure noise that changes every second.
+- [x] **Memory Profiling (pprof) & Benchmarks**: Integrate `net/http/pprof` to monitor in real-time whether Go's Garbage Collector is struggling under extreme loads (e.g., 100,000 logs per second) and optimize `HVector` memory allocation. Publish real benchmarks documenting peak memory, latency p99, and throughput.
+- [x] **Distributed Synchronization (Gossip Protocol)**: If you run 50 instances of Cortex on 50 servers, implement a lightweight P2P protocol for them to share and unify their learned Baselines without needing a central database.
+
+## Phase 5: High Throughput and Memory Management (Production Scale)
+
+- [ ] **Streaming / Mini-batch K-Means**: Modify the training phase (`trainer.go`) to avoid accumulating all `HVector`s in memory. Implement streaming or mini-batch K-Means to keep a predictable memory footprint when training with millions of log lines.
+- [ ] **Lock-free / Batched Decay Updates**: Optimize lock contention during inference. Currently, `DecayRate > 0` uses a global mutex per healthy log line. Implement batched updates or lock-free structures to avoid bottlenecking the worker pool.
+- [ ] **Backpressure and Bounded Channels**: Ensure the `LogReader` channels have strict bounded capacities. Implement drop strategies and expose "dropped_logs" metrics to handle saturation gracefully when ingestion rate exceeds processing speed.
+- [ ] **Kubernetes Resource Limits**: Define empirical CPU and Memory `requests` and `limits` in the DaemonSet manifest (`daemonset.yaml`), validating them against the pprof benchmarks to guarantee Cortex doesn't cause OOMKills on nodes.

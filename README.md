@@ -1,6 +1,6 @@
 # Cortex-HDC: Log Anomaly Detection with Hyperdimensional Computing
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 
 **Cortex-HDC** is an ultra-lightweight, high-performance engine written in Go that uses **Hyperdimensional Computing (HDC)** for real-time log anomaly detection.
 
@@ -9,6 +9,8 @@ Unlike traditional systems based on regular expressions (RegEx) or massive clust
 ## Features
 
 - 🧠 **Mathematics instead of RegEx**: Immune to minor text variations; inherently ignores random IDs.
+- 🧹 **Built-in Noise Filtering**: Built-in zero-allocation timestamp cleaner that automatically filters out standard time/date formats (RFC3339, ISO8601, Syslog, Apache) to focus only on structural log patterns.
+- 🔄 **P2P Cluster Sync (Gossip)**: Native multi-node baseline synchronization using `memberlist` (Gossip protocol), eliminating external brokers (like Redis) for clustered setups.
 - ⚡ **Native Performance**: Leverages Go concurrency (*Worker Pool*) and low-level bit manipulation.
 - 🛡️ **Clean Architecture**: Modular, decoupled, and highly testable structure.
 - 📦 **Pragmatic Dependencies**: Robust log tailing (compatible with log rotation via `nxadm/tail`) and advanced configuration management with `viper`, keeping the core HDC engine and HTTP notifications on the Go standard library.
@@ -79,6 +81,9 @@ If you want the engine to automatically train on the first run if the knowledge 
 - `--threshold` *(optional, default 0.65)*: Minimum mathematical similarity level required (0.0 to 1.0). If not provided, Cortex will automatically use the optimal threshold suggested during training.
 - `--decay-rate` *(optional, default 0.0)*: Memory Decay rate (e.g., `0.01`). Allows the baseline to gradually adapt to new healthy logs in production using Exponential Moving Average, avoiding obsolescence.
 - `--webhook` *(optional)*: HTTP POST endpoint (JSON format) where anomaly alerts will be dispatched.
+- `--p2p` *(optional, default false)*: Enable P2P baseline synchronization across nodes.
+- `--p2p-bind` *(optional, default 7946)*: Port for P2P gossip communication.
+- `--p2p-join` *(optional)*: Comma-separated seed addresses to join (e.g. `10.0.0.1:7946,10.0.0.2:7946`).
 - `--verbose` *(optional)*: Prints all log lines, not just anomalies. Normal lines in gray, anomalies in red.
 
 ---
@@ -120,8 +125,10 @@ docker run --rm -d \
 
 ## Observability & Metrics
 
-Cortex exposes internal metrics via a Prometheus exporter running on port `9090` at the `/metrics` endpoint.
-It tracks the total logs processed, anomalies detected, and memory consumption.
+Cortex exposes internal metrics via a Prometheus exporter and runtime profiling via Go pprof running on port `9090`.
+
+- **Prometheus Metrics**: Available at `/metrics` (e.g., `http://localhost:9090/metrics`). Tracks total logs processed, anomalies detected, and similarity score distributions.
+- **Go pprof Profiling**: Available at `/debug/pprof/` (e.g., `http://localhost:9090/debug/pprof/`). Allows capturing real-time heap, CPU, and goroutine profiles for performance debugging.
 
 ---
 
@@ -153,4 +160,4 @@ When similarity falls below the threshold, Cortex will send a `POST` request wit
 
 ## License
 
-This project is distributed under the MIT license. See the [LICENSE](LICENSE) file for details.
+This project is distributed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.

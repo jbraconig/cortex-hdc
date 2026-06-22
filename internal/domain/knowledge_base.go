@@ -1,5 +1,9 @@
 package domain
 
+import (
+	"sync"
+)
+
 // KnowledgeBase unifies everything the engine needs to remember.
 // Backward compatible: files that only contain Baseline will still decode
 // correctly because Baselines and SuggestedThreshold default to zero values.
@@ -8,6 +12,7 @@ type KnowledgeBase struct {
 	Baseline           HVector          // Single-cluster baseline (legacy / k=1)
 	Baselines          []HVector        // Multi-cluster baselines (Phase 3.1)
 	SuggestedThreshold float64          // Auto-tuned threshold (Phase 3.2); 0 means not set
+	mu                 sync.RWMutex
 }
 
 // NewKnowledgeBase initializes an empty KB
@@ -19,9 +24,21 @@ func NewKnowledgeBase() *KnowledgeBase {
 
 // GetLetterVector retrieves the vector for a character or generates a new one if it does not exist
 func (kb *KnowledgeBase) GetLetterVector(char rune) HVector {
+	kb.mu.RLock()
+	if val, exists := kb.ItemMemory[char]; exists {
+		kb.mu.RUnlock()
+		return val
+	}
+	kb.mu.RUnlock()
+
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+
+	// Double-check after acquiring write lock
 	if val, exists := kb.ItemMemory[char]; exists {
 		return val
 	}
+
 	v := GenerateRandomVector()
 	kb.ItemMemory[char] = v
 	return v

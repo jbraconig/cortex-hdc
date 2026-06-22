@@ -13,14 +13,15 @@ import (
 
 // Inference orchestrates real-time detection
 type Inference struct {
-	Encoder    domain.Encoder
-	LogReader  domain.LogReader
-	Notifier   domain.AlertNotifier
-	Store      domain.Persistence
-	Threshold  float64
-	Verbose    bool
-	DecayRate  float64 // 0 = disabled; 0.001 = slow; 0.01 = moderate
-	mu         sync.Mutex
+	Encoder     domain.Encoder
+	LogReader   domain.LogReader
+	Notifier    domain.AlertNotifier
+	Store       domain.Persistence
+	Threshold   float64
+	Verbose     bool
+	DecayRate   float64 // 0 = disabled; 0.001 = slow; 0.01 = moderate
+	ClusterSync domain.ClusterSync
+	mu          sync.Mutex
 }
 
 func NewInference(
@@ -31,15 +32,17 @@ func NewInference(
 	threshold float64,
 	verbose bool,
 	decayRate float64,
+	clusterSync domain.ClusterSync,
 ) *Inference {
 	return &Inference{
-		Encoder:   encoder,
-		LogReader: logReader,
-		Notifier:  notifier,
-		Store:     store,
-		Threshold: threshold,
-		Verbose:   verbose,
-		DecayRate: decayRate,
+		Encoder:     encoder,
+		LogReader:   logReader,
+		Notifier:    notifier,
+		Store:       store,
+		Threshold:   threshold,
+		Verbose:     verbose,
+		DecayRate:   decayRate,
+		ClusterSync: clusterSync,
 	}
 }
 
@@ -134,6 +137,13 @@ func (i *Inference) Run(ctx context.Context, kb *domain.KnowledgeBase, logFiles 
 							kb.Baseline = domain.DecayBlend(kb.Baseline, vectorLog, i.DecayRate)
 						}
 						i.mu.Unlock()
+
+						// Phase 4.3: Broadcast baseline update to cluster asynchronously
+						if i.ClusterSync != nil {
+							go func(vec domain.HVector, decay float64) {
+								_ = i.ClusterSync.BroadcastBaseline(vec, decay)
+							}(vectorLog, i.DecayRate)
+						}
 					}
 				}
 			}
