@@ -82,6 +82,26 @@ func (i *Inference) Run(ctx context.Context, kb *domain.KnowledgeBase, logFiles 
 		}()
 	}
 
+	var decayUpdates chan domain.HVector
+	var decayWg sync.WaitGroup
+	if i.DecayRate > 0 {
+		decayUpdates = make(chan domain.HVector, 2000)
+		decayWg.Add(1)
+		go func() {
+			defer decayWg.Done()
+			for vec := range decayUpdates {
+				i.mu.Lock()
+				kb.UpdateBaseline(vec, i.DecayRate)
+				i.mu.Unlock()
+
+				// Phase 4.3: Broadcast baseline update to cluster asynchronously
+				if i.ClusterSync != nil {
+					_ = i.ClusterSync.BroadcastBaseline(vec, i.DecayRate)
+				}
+			}
+		}()
+	}
+
 	var wg sync.WaitGroup
 
 	// ANSI Colors
@@ -128,21 +148,10 @@ func (i *Inference) Run(ctx context.Context, kb *domain.KnowledgeBase, logFiles 
 
 					// --- Memory Decay (Phase 3.3): adapt baseline toward healthy logs ---
 					if i.DecayRate > 0 {
-						i.mu.Lock()
-						if len(kb.Baselines) > 0 {
-							// Update the nearest cluster baseline
-							bestIdx := domain.AssignToCluster(vectorLog, kb.Baselines)
-							kb.Baselines[bestIdx] = domain.DecayBlend(kb.Baselines[bestIdx], vectorLog, i.DecayRate)
-						} else {
-							kb.Baseline = domain.DecayBlend(kb.Baseline, vectorLog, i.DecayRate)
-						}
-						i.mu.Unlock()
-
-						// Phase 4.3: Broadcast baseline update to cluster asynchronously
-						if i.ClusterSync != nil {
-							go func(vec domain.HVector, decay float64) {
-								_ = i.ClusterSync.BroadcastBaseline(vec, decay)
-							}(vectorLog, i.DecayRate)
+						select {
+						case decayUpdates <- vectorLog:
+						default:
+							// Drop update if channel is saturated to prioritize throughput
 						}
 					}
 				}
@@ -151,5 +160,9 @@ func (i *Inference) Run(ctx context.Context, kb *domain.KnowledgeBase, logFiles 
 	}
 
 	wg.Wait()
+	if i.DecayRate > 0 {
+		close(decayUpdates)
+		decayWg.Wait()
+	}
 	return nil
 }

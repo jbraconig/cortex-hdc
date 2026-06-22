@@ -99,3 +99,64 @@ func AssignToCluster(vec HVector, centroids []HVector) int {
 
 	return bestIdx
 }
+
+// MiniBatchKMeans holds the state of the streaming Mini-Batch K-Means algorithm.
+type MiniBatchKMeans struct {
+	k         int
+	centroids []HVector
+	vCounts   []int // Number of updates per centroid
+}
+
+// NewMiniBatchKMeans creates a new MiniBatchKMeans runner.
+func NewMiniBatchKMeans(k int) *MiniBatchKMeans {
+	return &MiniBatchKMeans{
+		k:       k,
+		vCounts: make([]int, k),
+	}
+}
+
+// Centroids returns the current cluster centroids.
+func (m *MiniBatchKMeans) Centroids() []HVector {
+	return m.centroids
+}
+
+// ProcessBatch updates centroids using the mini-batch vectors.
+func (m *MiniBatchKMeans) ProcessBatch(batch []HVector) {
+	if len(batch) == 0 {
+		return
+	}
+
+	// Initialize centroids if they are empty
+	if len(m.centroids) == 0 {
+		if len(batch) <= m.k {
+			// Degenerate case: use all vectors in batch as centroids
+			m.centroids = make([]HVector, len(batch))
+			copy(m.centroids, batch)
+			for i := range m.centroids {
+				m.vCounts[i] = 1
+			}
+			return
+		}
+		// Initialize centroids using K-Means++ on the first batch
+		m.centroids = kMeansPlusPlusInit(batch, m.k)
+		for i := range m.centroids {
+			m.vCounts[i] = 1
+		}
+	}
+
+	// For each vector in the batch, assign to nearest centroid and update centroid
+	for _, vec := range batch {
+		idx := AssignToCluster(vec, m.centroids)
+		m.vCounts[idx]++
+
+		// Learning rate decay: eta = 1 / vCounts[idx]
+		// Clamp at a minimum of 0.01 to allow perpetual learning/adaptation during streaming.
+		eta := 1.0 / float64(m.vCounts[idx])
+		if eta < 0.01 {
+			eta = 0.01
+		}
+
+		m.centroids[idx] = DecayBlend(m.centroids[idx], vec, eta)
+	}
+}
+

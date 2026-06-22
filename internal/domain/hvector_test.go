@@ -79,3 +79,23 @@ func TestBundle(t *testing.T) {
 		}
 	}
 }
+
+func TestBundleAccumulator(t *testing.T) {
+	var vectors []HVector
+	for i := 0; i < 15; i++ {
+		vectors = append(vectors, GenerateRandomVector())
+	}
+
+	expected := Bundle(vectors)
+
+	accumulator := NewBundleAccumulator()
+	for _, vec := range vectors {
+		accumulator.Add(vec)
+	}
+	actual := accumulator.Result()
+
+	if Similarity(expected, actual) != 1.0 {
+		t.Error("BundleAccumulator results do not match standard Bundle results exactly")
+	}
+}
+

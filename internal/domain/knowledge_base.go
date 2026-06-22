@@ -48,6 +48,9 @@ func (kb *KnowledgeBase) GetLetterVector(char rune) HVector {
 // If multi-cluster baselines exist (Phase 3.1), it compares against each cluster
 // and returns the maximum. Falls back to the single Baseline for backward compatibility.
 func (kb *KnowledgeBase) BestSimilarity(vec HVector) float64 {
+	kb.mu.RLock()
+	defer kb.mu.RUnlock()
+
 	if len(kb.Baselines) > 0 {
 		best := 0.0
 		for _, b := range kb.Baselines {
@@ -59,3 +62,18 @@ func (kb *KnowledgeBase) BestSimilarity(vec HVector) float64 {
 	}
 	return Similarity(vec, kb.Baseline)
 }
+
+// UpdateBaseline incorporates a new healthy vector into the baseline(s) using DecayBlend.
+func (kb *KnowledgeBase) UpdateBaseline(vec HVector, decayRate float64) {
+	kb.mu.Lock()
+	defer kb.mu.Unlock()
+
+	if len(kb.Baselines) > 0 {
+		// Update the nearest cluster baseline
+		bestIdx := AssignToCluster(vec, kb.Baselines)
+		kb.Baselines[bestIdx] = DecayBlend(kb.Baselines[bestIdx], vec, decayRate)
+	} else {
+		kb.Baseline = DecayBlend(kb.Baseline, vec, decayRate)
+	}
+}
+

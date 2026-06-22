@@ -85,6 +85,50 @@ func Bundle(vectors []HVector) HVector {
 	return result
 }
 
+// BundleAccumulator computes a Bundle incrementally without storing all vectors in memory.
+type BundleAccumulator struct {
+	counts [NumBlocks][64]int
+	total  int
+}
+
+// NewBundleAccumulator creates a new BundleAccumulator.
+func NewBundleAccumulator() *BundleAccumulator {
+	return &BundleAccumulator{}
+}
+
+// Add incorporates an HVector into the accumulator.
+func (ba *BundleAccumulator) Add(vec HVector) {
+	for block := 0; block < NumBlocks; block++ {
+		word := vec.Data[block]
+		for word != 0 {
+			bitPos := bits.TrailingZeros64(word)
+			ba.counts[block][bitPos]++
+			word &= word - 1 // Turn off the least significant bit that is on
+		}
+	}
+	ba.total++
+}
+
+// Result computes the final bundled HVector.
+func (ba *BundleAccumulator) Result() HVector {
+	if ba.total == 0 {
+		return GenerateRandomVector()
+	}
+	var result HVector
+	threshold := ba.total / 2
+	for block := 0; block < NumBlocks; block++ {
+		var resBlock uint64
+		for bit := 0; bit < 64; bit++ {
+			if ba.counts[block][bit] > threshold {
+				resBlock |= (1 << bit)
+			}
+		}
+		result.Data[block] = resBlock
+	}
+	return result
+}
+
+
 // Similarity compares two vectors and returns the similarity (0.0 to 1.0) using Hamming distance
 func Similarity(a, b HVector) float64 {
 	diffBits := 0

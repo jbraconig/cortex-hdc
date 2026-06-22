@@ -103,3 +103,23 @@ func TestClusterBaselines_Convergence(t *testing.T) {
 		Similarity(b1[1], b2[1]),
 		Similarity(b1[2], b2[2]))
 }
+
+func TestMiniBatchKMeans(t *testing.T) {
+	// Create a mini-batch K-Means model for k=2
+	mb := NewMiniBatchKMeans(2)
+
+	// Feed 10 batches of 5 vectors each
+	for i := 0; i < 10; i++ {
+		batch := make([]HVector, 5)
+		for j := range batch {
+			batch[j] = GenerateRandomVector()
+		}
+		mb.ProcessBatch(batch)
+	}
+
+	centroids := mb.Centroids()
+	if len(centroids) != 2 {
+		t.Fatalf("Expected 2 centroids, got %d", len(centroids))
+	}
+}
+

@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -24,136 +25,174 @@ func NewTrainer(encoder domain.Encoder, persistence domain.Persistence) *Trainer
 	}
 }
 
-// collectVectors reads all lines from a channel and encodes them into HVectors
-func (t *Trainer) collectVectors(kb *domain.KnowledgeBase, ch <-chan string, label string) ([]domain.HVector, error) {
-	var vectors []domain.HVector
-	var linesProcessed int
+type welford struct {
+	count int
+	mean  float64
+	m2    float64
+}
 
+func (w *welford) update(x float64) {
+	w.count++
+	delta := x - w.mean
+	w.mean += delta / float64(w.count)
+	delta2 := x - w.mean
+	w.m2 += delta * delta2
+}
+
+func (w *welford) stats() (float64, float64) {
+	if w.count == 0 {
+		return 0, 0
+	}
+	if w.count < 2 {
+		return w.mean, 0
+	}
+	variance := w.m2 / float64(w.count)
+	return w.mean, math.Sqrt(variance)
+}
+
+// processVectors reads and encodes logs from a file or directory, invoking a callback on each HVector.
+func (t *Trainer) processVectors(kb *domain.KnowledgeBase, path string, callback func(domain.HVector)) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	if info.IsDir() {
+		return filepath.Walk(path, func(subPath string, subInfo os.FileInfo, walkErr error) error {
+			if walkErr != nil {
+				return walkErr
+			}
+			if subInfo.IsDir() {
+				return nil
+			}
+			return t.processFileVectors(kb, subPath, callback)
+		})
+	}
+
+	return t.processFileVectors(kb, path, callback)
+}
+
+func (t *Trainer) processFileVectors(kb *domain.KnowledgeBase, filePath string, callback func(domain.HVector)) error {
+	ch, err := logreader.ReadStaticLogs(filePath)
+	if err != nil {
+		return err
+	}
 	for line := range ch {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
 		}
 		vec := t.Encoder.EncodeLine(kb, line)
-		vectors = append(vectors, vec)
-		linesProcessed++
-
-		if linesProcessed%10000 == 0 {
-			fmt.Printf("[%s] Processed %d lines...\n", label, linesProcessed)
-		}
+		callback(vec)
 	}
-	return vectors, nil
+	return nil
 }
 
-// applyBaselines assigns either a single Bundle baseline or K cluster baselines,
-// then computes the Auto-Tuning threshold and logs suggestions.
-func applyBaselines(kb *domain.KnowledgeBase, allVectors []domain.HVector, numClusters int) {
-	if numClusters >= 2 {
-		fmt.Printf("Clustering %d vectors into %d baselines...\n", len(allVectors), numClusters)
-		kb.Baselines = domain.ClusterBaselines(allVectors, numClusters, 50)
-		fmt.Printf("Generated %d cluster baselines.\n", len(kb.Baselines))
-	} else {
-		fmt.Printf("Generating healthy Baseline from %d vectors...\n", len(allVectors))
-		kb.Baseline = domain.Bundle(allVectors)
-	}
-
-	// --- Auto-Tuning: second pass over training vectors ---
-	var similarities []float64
-	for _, vec := range allVectors {
-		similarities = append(similarities, kb.BestSimilarity(vec))
-	}
-	suggested := domain.SuggestThreshold(similarities)
-	kb.SuggestedThreshold = suggested
-
-	fmt.Printf("[AUTO-TUNE] Distribution: mean=%.4f  stddev=%.4f\n",
-		domain.Mean(similarities), domain.StdDev(similarities))
-	fmt.Printf("[AUTO-TUNE] Suggested threshold: %.4f  (use --threshold %.4f or set CORTEX_THRESHOLD=%.4f)\n",
-		suggested, suggested, suggested)
-}
-
-// TrainFromFile reads a log file, encodes it, and generates a baseline.
-// numClusters=0 or 1 → single Bundle baseline (default).
-// numClusters>=2     → K-Means clustering into K baselines.
-func (t *Trainer) TrainFromFile(filePath string, outputDb string, numClusters int) error {
-	fmt.Printf("Starting training phase from: %s\n", filePath)
-	startTime := time.Now()
-
+// train encapsulates the logic of doing streaming/mini-batch passes on the files.
+func (t *Trainer) train(path string, outputDb string, numClusters int) error {
 	kb := domain.NewKnowledgeBase()
 
-	ch, err := logreader.ReadStaticLogs(filePath)
-	if err != nil {
-		return fmt.Errorf("error reading training file: %w", err)
+	// Pass 1: Model training / clustering
+	var linesProcessed int
+	if numClusters >= 2 {
+		fmt.Printf("Clustering vectors into %d baselines...\n", numClusters)
+		mb := domain.NewMiniBatchKMeans(numClusters)
+		batch := make([]domain.HVector, 0, 5000)
+
+		err := t.processVectors(kb, path, func(vec domain.HVector) {
+			batch = append(batch, vec)
+			linesProcessed++
+			if len(batch) >= 5000 {
+				mb.ProcessBatch(batch)
+				batch = batch[:0] // Reuse capacity to save allocation overhead
+			}
+			if linesProcessed%10000 == 0 {
+				fmt.Printf("[TRAIN] Processed %d lines...\n", linesProcessed)
+			}
+		})
+		if err != nil {
+			return err
+		}
+		if len(batch) > 0 {
+			mb.ProcessBatch(batch)
+		}
+
+		kb.Baselines = mb.Centroids()
+		if len(kb.Baselines) == 0 {
+			return fmt.Errorf("training data is empty or contained no valid lines")
+		}
+		fmt.Printf("Generated %d cluster baselines.\n", len(kb.Baselines))
+	} else {
+		fmt.Println("Generating healthy Baseline...")
+		accumulator := domain.NewBundleAccumulator()
+
+		err := t.processVectors(kb, path, func(vec domain.HVector) {
+			accumulator.Add(vec)
+			linesProcessed++
+			if linesProcessed%10000 == 0 {
+				fmt.Printf("[TRAIN] Processed %d lines...\n", linesProcessed)
+			}
+		})
+		if err != nil {
+			return err
+		}
+		if linesProcessed == 0 {
+			return fmt.Errorf("training data is empty or contained no valid lines")
+		}
+		kb.Baseline = accumulator.Result()
 	}
 
-	allVectors, err := t.collectVectors(kb, ch, "TRAIN")
+	// Pass 2: Auto-Tuning / threshold suggestion
+	fmt.Println("Auto-tuning threshold (Pass 2)...")
+	var w welford
+	err := t.processVectors(kb, path, func(vec domain.HVector) {
+		sim := kb.BestSimilarity(vec)
+		w.update(sim)
+	})
 	if err != nil {
 		return err
 	}
-	if len(allVectors) == 0 {
-		return fmt.Errorf("training file is empty or contained no valid lines")
-	}
 
-	applyBaselines(kb, allVectors, numClusters)
+	mean, stddev := w.stats()
+	suggested := mean - 2*stddev
+	if suggested < 0.30 {
+		suggested = 0.30
+	}
+	if suggested > 0.90 {
+		suggested = 0.90
+	}
+	kb.SuggestedThreshold = suggested
+
+	fmt.Printf("[AUTO-TUNE] Distribution: mean=%.4f  stddev=%.4f\n", mean, stddev)
+	fmt.Printf("[AUTO-TUNE] Suggested threshold: %.4f  (use --threshold %.4f or set CORTEX_THRESHOLD=%.4f)\n",
+		suggested, suggested, suggested)
 
 	fmt.Printf("Saving memory (KnowledgeBase) to: %s\n", outputDb)
 	if err := t.Persistence.Save(kb, outputDb); err != nil {
 		return fmt.Errorf("error saving DB: %w", err)
 	}
 
+	return nil
+}
+
+// TrainFromFile reads a log file in streaming chunks and generates a baseline/baselines database.
+func (t *Trainer) TrainFromFile(filePath string, outputDb string, numClusters int) error {
+	fmt.Printf("Starting training phase from: %s\n", filePath)
+	startTime := time.Now()
+	if err := t.train(filePath, outputDb, numClusters); err != nil {
+		return err
+	}
 	fmt.Printf("Training completed in %v!\n", time.Since(startTime))
 	return nil
 }
 
-// TrainFromDirectory reads all files in a directory, encodes them, and generates a baseline.
-// Supports multi-cluster baselines via numClusters.
+// TrainFromDirectory reads all files in a directory in streaming chunks and generates a baseline/baselines database.
 func (t *Trainer) TrainFromDirectory(dirPath string, outputDb string, numClusters int) error {
 	fmt.Printf("Starting auto-training phase from directory: %s\n", dirPath)
 	startTime := time.Now()
-
-	kb := domain.NewKnowledgeBase()
-	var allVectors []domain.HVector
-	var totalLines, filesProcessed int
-
-	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-		if info.IsDir() {
-			return nil
-		}
-
-		fmt.Printf("Processing file: %s\n", path)
-		ch, err := logreader.ReadStaticLogs(path)
-		if err != nil {
-			return fmt.Errorf("error reading file %s: %w", path, err)
-		}
-
-		fileVectors, err := t.collectVectors(kb, ch, "AUTO")
-		if err != nil {
-			return err
-		}
-		allVectors = append(allVectors, fileVectors...)
-		totalLines += len(fileVectors)
-		filesProcessed++
-		fmt.Printf("Finished file: %s (%d lines)\n", path, len(fileVectors))
-		return nil
-	})
-
-	if err != nil {
-		return fmt.Errorf("error walking directory: %w", err)
+	if err := t.train(dirPath, outputDb, numClusters); err != nil {
+		return err
 	}
-	if len(allVectors) == 0 {
-		return fmt.Errorf("no valid log lines found in directory %s", dirPath)
-	}
-
-	fmt.Printf("Total: %d lines across %d files.\n", totalLines, filesProcessed)
-	applyBaselines(kb, allVectors, numClusters)
-
-	fmt.Printf("Saving memory (KnowledgeBase) to: %s\n", outputDb)
-	if err := t.Persistence.Save(kb, outputDb); err != nil {
-		return fmt.Errorf("error saving DB: %w", err)
-	}
-
 	fmt.Printf("Auto-training completed in %v!\n", time.Since(startTime))
 	return nil
 }

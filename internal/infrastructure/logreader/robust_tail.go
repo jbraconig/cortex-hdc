@@ -67,8 +67,14 @@ func (r *RobustTailReader) ReadLogs(ctx context.Context, filePaths []string) (<-
 					if line.Err != nil {
 						continue
 					}
-					// Send line to the multiplexed channel
-					ch <- line.Text
+					// Send line to the multiplexed channel with context check
+					select {
+					case <-ctx.Done():
+						tailer.Stop()
+						tailer.Cleanup()
+						return
+					case ch <- line.Text:
+					}
 				}
 			}
 		}(t)

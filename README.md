@@ -9,10 +9,11 @@ Unlike traditional systems based on regular expressions (RegEx) or massive clust
 ## Features
 
 - 🧠 **Mathematics instead of RegEx**: Immune to minor text variations; inherently ignores random IDs.
+- 🌱 **O(1) Streaming Training**: Trains models on massive log files (millions of lines) with a flat, constant memory footprint using Mini-Batch K-Means and incremental bundling.
+- ⚡ **Lock-Free / Batched Decay**: Eliminates mutex lock contention in worker pools during baseline updates via a dedicated asynchronous queue worker.
+- 🛡️ **Context-Aware Backpressure**: Halts input parsing and blocks log ingestion under worker saturation, avoiding memory spikes while maintaining zero-leak context cancellation safety.
 - 🧹 **Built-in Noise Filtering**: Built-in zero-allocation timestamp cleaner that automatically filters out standard time/date formats (RFC3339, ISO8601, Syslog, Apache) to focus only on structural log patterns.
 - 🔄 **P2P Cluster Sync (Gossip)**: Native multi-node baseline synchronization using `memberlist` (Gossip protocol), eliminating external brokers (like Redis) for clustered setups.
-- ⚡ **Native Performance**: Leverages Go concurrency (*Worker Pool*) and low-level bit manipulation.
-- 🛡️ **Clean Architecture**: Modular, decoupled, and highly testable structure.
 - 📦 **Pragmatic Dependencies**: Robust log tailing (compatible with log rotation via `nxadm/tail`) and advanced configuration management with `viper`, keeping the core HDC engine and HTTP notifications on the Go standard library.
 - 🔔 **Universal Alerts**: Emits JSON webhooks compatible with standard systems like Prometheus Alertmanager, Grafana, or Slack.
 
@@ -53,7 +54,7 @@ For the engine to know what an anomaly is, it must first learn what is "normal".
 ./cortex train --file /path/to/your/healthy.log --clusters 3
 ```
 
-- This process reads the log, vectorizes each line, applies K-Means clustering (if `--clusters >= 2`), and generates mathematical signatures (`Baselines`).
+- This process reads the log and trains the engine in streaming mode using a constant memory footprint ($O(1)$ RAM). It vectorizes each line, applies streaming Mini-Batch K-Means clustering (if `--clusters >= 2`) or incremental bundling, and generates mathematical signatures (`Baselines`).
 - It automatically performs a statistical pass (Auto-Tuning) to calculate the standard deviation and suggest the optimal `--threshold`.
 - The trained model and the suggested threshold will be saved in the persistent database file `cortex.kv`.
 
@@ -136,7 +137,7 @@ Cortex exposes internal metrics via a Prometheus exporter and runtime profiling 
 
 Cortex-HDC is built for maximum throughput with a negligible resource footprint. In a real-world benchmark run processing a stream of **128,000 logs** with 8 concurrent workers, Cortex achieved:
 
-- **Ingestion Throughput**: **~7,400+ logs/second** (parsing, cleaning, vectorizing, and similarity checking).
+- **Ingestion Throughput**: **~8,600+ logs/second** (parsing, cleaning, vectorizing, and similarity checking).
 - **Memory Footprint**: **< 7 MB of active RAM heap** at peak load.
 - **Garbage Collection Latency**: Max stop-the-world pause of **0.25 milliseconds** (median pause of **0.06 milliseconds**).
 
