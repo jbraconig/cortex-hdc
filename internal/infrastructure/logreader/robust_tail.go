@@ -33,6 +33,7 @@ func (r *RobustTailReader) ReadLogs(ctx context.Context, filePaths []string) (<-
 		ReOpen:    true,                                          // Reopens the file if rotated/moved
 		Location:  &tail.SeekInfo{Offset: 0, Whence: io.SeekEnd}, // Starts from the end like tail -f
 		MustExist: false,                                         // Does not fail if the file does not exist yet at startup
+		Poll:      true,                                          // Use polling instead of inotify for container compatibility
 		Logger:    tail.DiscardingLogger,                         // Keep terminal clean
 	}
 

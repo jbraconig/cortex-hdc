@@ -1,9 +1,11 @@
 package p2p
 
 import (
-	"encoding/json"
+	"encoding/binary"
 	"fmt"
 	"log"
+	"math"
+	"math/rand"
 	"os"
 	"sync"
 
@@ -28,8 +30,8 @@ func (d *gossipDelegate) NodeMeta(limit int) []byte {
 }
 
 func (d *gossipDelegate) NotifyMsg(msg []byte) {
-	var pm domain.PeerMessage
-	if err := json.Unmarshal(msg, &pm); err != nil {
+	vec, decay, err := unmarshalPeerMessage(msg)
+	if err != nil {
 		log.Printf("[P2P] Failed to parse cluster update: %v", err)
 		return
 	}
@@ -37,12 +39,12 @@ func (d *gossipDelegate) NotifyMsg(msg []byte) {
 	d.node.mu.Lock()
 	defer d.node.mu.Unlock()
 
-	log.Printf("[P2P] Received baseline update from cluster. Mixing vector (decay: %.4f)", pm.Decay)
+	log.Printf("[P2P] Received baseline update from cluster. Mixing vector (decay: %.4f)", decay)
 	if len(d.node.kb.Baselines) > 0 {
-		bestIdx := domain.AssignToCluster(pm.Vector, d.node.kb.Baselines)
-		d.node.kb.Baselines[bestIdx] = domain.DecayBlend(d.node.kb.Baselines[bestIdx], pm.Vector, pm.Decay)
+		bestIdx := domain.AssignToCluster(vec, d.node.kb.Baselines)
+		d.node.kb.Baselines[bestIdx] = domain.DecayBlend(d.node.kb.Baselines[bestIdx], vec, decay)
 	} else {
-		d.node.kb.Baseline = domain.DecayBlend(d.node.kb.Baseline, pm.Vector, pm.Decay)
+		d.node.kb.Baseline = domain.DecayBlend(d.node.kb.Baseline, vec, decay)
 	}
 }
 
@@ -84,7 +86,8 @@ func NewGossipNode(bindPort int, joinAddrs []string, kb *domain.KnowledgeBase) (
 	if hostname == "" {
 		hostname = "cortex-node"
 	}
-	config.Name = fmt.Sprintf("%s-%d", hostname, bindPort)
+	// Use random suffix to prevent memberlist conflicts when a node restarts with a new IP
+	config.Name = fmt.Sprintf("%s-%d-%x", hostname, bindPort, rand.Int63())
 
 	delegate := &gossipDelegate{node: node}
 	config.Delegate = delegate
@@ -116,18 +119,35 @@ func NewGossipNode(bindPort int, joinAddrs []string, kb *domain.KnowledgeBase) (
 }
 
 func (g *GossipNode) BroadcastBaseline(vec domain.HVector, decayRate float64) error {
-	pm := domain.PeerMessage{
-		Vector: vec,
-		Decay:  decayRate,
-	}
-
-	data, err := json.Marshal(pm)
-	if err != nil {
-		return fmt.Errorf("failed to marshal peer message: %w", err)
-	}
-
+	data := marshalPeerMessage(vec, decayRate)
 	g.broadcasts.QueueBroadcast(&peerBroadcast{msg: data})
 	return nil
+}
+
+func marshalPeerMessage(vec domain.HVector, decay float64) []byte {
+	// Decay (float64, 8 bytes) + HVector (157 * 8 bytes) = 1264 bytes
+	buf := make([]byte, 8+len(vec.Data)*8)
+	bits := math.Float64bits(decay)
+	binary.BigEndian.PutUint64(buf[0:8], bits)
+	for i := 0; i < len(vec.Data); i++ {
+		binary.BigEndian.PutUint64(buf[8+i*8:8+(i+1)*8], vec.Data[i])
+	}
+	return buf
+}
+
+func unmarshalPeerMessage(buf []byte) (domain.HVector, float64, error) {
+	// Check if buffer size matches what we expect (1264 bytes)
+	expectedLen := 8 + 157*8
+	if len(buf) < expectedLen {
+		return domain.HVector{}, 0, fmt.Errorf("buffer too short: got %d, expected %d", len(buf), expectedLen)
+	}
+	bits := binary.BigEndian.Uint64(buf[0:8])
+	decay := math.Float64frombits(bits)
+	var vec domain.HVector
+	for i := 0; i < len(vec.Data); i++ {
+		vec.Data[i] = binary.BigEndian.Uint64(buf[8+i*8 : 8+(i+1)*8])
+	}
+	return vec, decay, nil
 }
 
 func (g *GossipNode) Shutdown() error {

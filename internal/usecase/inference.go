@@ -67,10 +67,6 @@ func (i *Inference) Run(ctx context.Context, kb *domain.KnowledgeBase, logFiles 
 			for {
 				select {
 				case <-ctx.Done():
-					i.mu.Lock()
-					_ = i.Store.Save(kb, dbFile)
-					i.mu.Unlock()
-					fmt.Println("[CORTEX] Baseline auto-saved on shutdown (decay checkpoint)")
 					return
 				case <-ticker.C:
 					i.mu.Lock()
@@ -163,6 +159,14 @@ func (i *Inference) Run(ctx context.Context, kb *domain.KnowledgeBase, logFiles 
 	if i.DecayRate > 0 {
 		close(decayUpdates)
 		decayWg.Wait()
+	}
+
+	// Save baseline synchronously at the very end of inference run
+	if i.Store != nil && dbFile != "" {
+		i.mu.Lock()
+		_ = i.Store.Save(kb, dbFile)
+		i.mu.Unlock()
+		fmt.Println("[CORTEX] Baseline auto-saved on shutdown (decay checkpoint)")
 	}
 	return nil
 }
