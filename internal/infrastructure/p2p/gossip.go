@@ -150,6 +150,13 @@ func unmarshalPeerMessage(buf []byte) (domain.HVector, float64, error) {
 	return vec, decay, nil
 }
 
+func (g *GossipNode) NodeName() string {
+	if g.list != nil {
+		return g.list.LocalNode().Name
+	}
+	return "unknown-node"
+}
+
 func (g *GossipNode) Shutdown() error {
 	log.Println("[P2P] Shutting down P2P cluster node...")
 	if g.list != nil {

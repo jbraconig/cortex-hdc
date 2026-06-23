@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +22,7 @@ type Inference struct {
 	Verbose     bool
 	DecayRate   float64 // 0 = disabled; 0.001 = slow; 0.01 = moderate
 	ClusterSync domain.ClusterSync
+	Telemetry   domain.TelemetryClient
 	mu          sync.Mutex
 }
 
@@ -33,6 +35,7 @@ func NewInference(
 	verbose bool,
 	decayRate float64,
 	clusterSync domain.ClusterSync,
+	telemetry domain.TelemetryClient,
 ) *Inference {
 	return &Inference{
 		Encoder:     encoder,
@@ -43,6 +46,7 @@ func NewInference(
 		Verbose:     verbose,
 		DecayRate:   decayRate,
 		ClusterSync: clusterSync,
+		Telemetry:   telemetry,
 	}
 }
 
@@ -137,6 +141,20 @@ func (i *Inference) Run(ctx context.Context, kb *domain.KnowledgeBase, logFiles 
 					}
 					fmt.Printf("%s[ANOMALY: %.2f%%] %s%s\n", colorRed, similitud*100, logLine, colorReset)
 					_ = i.Notifier.Notify(logLine, similitud)
+
+					// Report anomaly to SaaS via gRPC
+					if i.Telemetry != nil {
+						vecBytes := vectorLog.Serialize()
+						nodeID := "local-agent"
+						if i.ClusterSync != nil {
+							nodeID = i.ClusterSync.NodeName()
+						} else {
+							if hostname, err := os.Hostname(); err == nil {
+								nodeID = hostname
+							}
+						}
+						i.Telemetry.ReportAnomaly(nodeID, similitud, time.Now().Unix(), vecBytes)
+					}
 				} else {
 					if i.Verbose {
 						fmt.Printf("%s[OK: %.2f%%] %s%s\n", colorGray, similitud*100, logLine, colorReset)

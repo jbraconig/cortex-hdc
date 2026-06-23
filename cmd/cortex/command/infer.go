@@ -9,6 +9,7 @@ import (
 
 	"github.com/jbraconig/cortex-hdc/internal/config"
 	"github.com/jbraconig/cortex-hdc/internal/domain"
+	"github.com/jbraconig/cortex-hdc/internal/infrastructure/grpc"
 	"github.com/jbraconig/cortex-hdc/internal/infrastructure/logreader"
 	"github.com/jbraconig/cortex-hdc/internal/infrastructure/metrics"
 	"github.com/jbraconig/cortex-hdc/internal/infrastructure/notifier"
@@ -27,6 +28,8 @@ type InferCommand struct {
 	p2pEnabled   bool
 	p2pBindPort  int
 	p2pJoinAddrs string
+	saasEndpoint string
+	saasToken    string
 }
 
 func (c *InferCommand) Name() string {
@@ -44,6 +47,8 @@ func (c *InferCommand) Parse(args []string, cfg *config.Config) {
 	p2pFlag := inferCmd.Bool("p2p", false, "Enable P2P cluster synchronization")
 	p2pBindPortFlag := inferCmd.Int("p2p-bind", 7946, "Local P2P bind port for gossip communication")
 	p2pJoinAddrsFlag := inferCmd.String("p2p-join", "", "Comma-separated cluster seed addresses to join")
+	saasEndpointFlag := inferCmd.String("saas-endpoint", "", "SaaS Control Plane gRPC endpoint (e.g. localhost:50051)")
+	saasTokenFlag := inferCmd.String("saas-token", "", "Authentication token for SaaS Control Plane")
 	inferCmd.Parse(args)
 
 	c.file = cfg.File
@@ -56,6 +61,8 @@ func (c *InferCommand) Parse(args []string, cfg *config.Config) {
 	c.p2pEnabled = cfg.P2P
 	c.p2pBindPort = cfg.P2PBindPort
 	c.p2pJoinAddrs = cfg.P2PJoinAddrs
+	c.saasEndpoint = cfg.SaaSEndpoint
+	c.saasToken = cfg.SaaSToken
 
 	inferCmd.Visit(func(f *flag.Flag) {
 		switch f.Name {
@@ -77,6 +84,10 @@ func (c *InferCommand) Parse(args []string, cfg *config.Config) {
 			c.p2pBindPort = *p2pBindPortFlag
 		case "p2p-join":
 			c.p2pJoinAddrs = *p2pJoinAddrsFlag
+		case "saas-endpoint":
+			c.saasEndpoint = *saasEndpointFlag
+		case "saas-token":
+			c.saasToken = *saasTokenFlag
 		}
 	})
 
@@ -125,7 +136,20 @@ func (c *InferCommand) Execute(deps Dependencies) error {
 		gossipNode = gn
 	}
 
-	inference := usecase.NewInference(deps.Encoder, reader, httpNotifier, deps.Store, c.threshold, c.verbose, c.decayRate, gossipNode)
+	// Initialize Telemetry Client
+	var telemetryClient domain.TelemetryClient
+	if c.saasEndpoint != "" && c.saasToken != "" {
+		tc, err := grpc.NewRealTelemetryClient(c.saasEndpoint, c.saasToken)
+		if err != nil {
+			return fmt.Errorf("failed to start SaaS telemetry client: %w", err)
+		}
+		telemetryClient = tc
+		fmt.Printf("[SAAS] Telemetry enabled. Reporting to %s\n", c.saasEndpoint)
+	} else {
+		telemetryClient = grpc.NewNoOpTelemetryClient()
+	}
+
+	inference := usecase.NewInference(deps.Encoder, reader, httpNotifier, deps.Store, c.threshold, c.verbose, c.decayRate, gossipNode, telemetryClient)
 
 	// Parse comma-separated files
 	rawPaths := strings.Split(c.file, ",")
@@ -146,6 +170,7 @@ func (c *InferCommand) Execute(deps Dependencies) error {
 		if gossipNode != nil {
 			defer gossipNode.Shutdown()
 		}
+		defer telemetryClient.Close()
 		return inference.Run(ctx, kb, logFiles, c.workers, dbFile)
 	})
 }

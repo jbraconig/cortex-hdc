@@ -18,6 +18,8 @@ type Config struct {
 	P2P          bool    `mapstructure:"p2p"`            // Phase 4.3: Enable P2P baseline synchronization
 	P2PBindPort  int     `mapstructure:"p2p_bind_port"`  // Phase 4.3: Port for gossip communication (default 7946)
 	P2PJoinAddrs string  `mapstructure:"p2p_join_addrs"` // Phase 4.3: Comma-separated addresses to join clúster (e.g. "10.0.0.1:7946,10.0.0.2:7946")
+	SaaSEndpoint string  `mapstructure:"saas_endpoint"`
+	SaaSToken    string  `mapstructure:"saas_token"`
 }
 
 // LoadConfig reads configuration from environment variables prefixed with CORTEX_*
@@ -35,6 +37,8 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("p2p", false)
 	viper.SetDefault("p2p_bind_port", 7946)
 	viper.SetDefault("p2p_join_addrs", "")
+	viper.SetDefault("saas_endpoint", "")
+	viper.SetDefault("saas_token", "")
 
 	// Allow reading from environment variables with CORTEX prefix (e.g., CORTEX_WORKERS)
 	viper.SetEnvPrefix("CORTEX")

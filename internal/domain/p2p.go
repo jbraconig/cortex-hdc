@@ -10,6 +10,8 @@ type PeerMessage struct {
 type ClusterSync interface {
 	// BroadcastBaseline sends the local vector and decay rate update to other nodes.
 	BroadcastBaseline(vec HVector, decayRate float64) error
+	// NodeName returns the local node identifier.
+	NodeName() string
 	// Shutdown gracefully stops cluster networking.
 	Shutdown() error
 }

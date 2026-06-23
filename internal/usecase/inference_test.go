@@ -66,6 +66,10 @@ func (m *mockClusterSync) BroadcastBaseline(vec domain.HVector, decayRate float6
 	return nil
 }
 
+func (m *mockClusterSync) NodeName() string {
+	return "mock-node"
+}
+
 func (m *mockClusterSync) Shutdown() error {
 	return nil
 }
@@ -94,6 +98,7 @@ func TestInferenceDecayBroadcast(t *testing.T) {
 		false,
 		0.01, // decayRate > 0
 		mSync,
+		nil,
 	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

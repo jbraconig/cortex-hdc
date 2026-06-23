@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package cortex.telemetry.v1;
+
+option go_package = "github.com/jbraconig/cortex-hdc/api/proto/v1;telemetryv1";
+
+service TelemetryService {
+  rpc ReportAnomaly(AnomalyReportRequest) returns (AnomalyReportResponse);
+}
+
+message AnomalyReportRequest {
+  string token = 1;
+  string node_id = 2;
+  double anomaly_score = 3;
+  int64 timestamp = 4;
+  bytes hdc_vector = 5;
+}
+
+message AnomalyReportResponse {
+  bool success = 1;
+  string message = 2;
+}

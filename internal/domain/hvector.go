@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/binary"
 	"math/bits"
 	"math/rand"
 )
@@ -138,3 +139,13 @@ func Similarity(a, b HVector) float64 {
 	}
 	return 1.0 - (float64(diffBits) / float64(Dimensions))
 }
+
+// Serialize converts the HVector to a byte slice (NumBlocks * 8 = 1256 bytes)
+func (v HVector) Serialize() []byte {
+	buf := make([]byte, NumBlocks*8)
+	for i := 0; i < NumBlocks; i++ {
+		binary.BigEndian.PutUint64(buf[i*8:(i+1)*8], v.Data[i])
+	}
+	return buf
+}
+

@@ -85,9 +85,12 @@ If you want the engine to automatically train on the first run if the knowledge 
 - `--p2p` *(optional, default false)*: Enable P2P baseline synchronization across nodes.
 - `--p2p-bind` *(optional, default 7946)*: Port for P2P gossip communication.
 - `--p2p-join` *(optional)*: Comma-separated seed addresses to join (e.g. `10.0.0.1:7946,10.0.0.2:7946`).
+- `--saas-endpoint` *(optional)*: SaaS Control Plane gRPC endpoint (e.g. `cloud.yourcompany.com:50051`).
+- `--saas-token` *(optional)*: Authentication token for the SaaS Control Plane.
 - `--verbose` *(optional)*: Prints all log lines, not just anomalies. Normal lines in gray, anomalies in red.
 
 ---
+
 
 ## 🐳 Docker Quick Start
 
