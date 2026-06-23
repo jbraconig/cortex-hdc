@@ -183,6 +183,17 @@ When similarity falls below the threshold, Cortex will send a `POST` request wit
 
 ---
 
+## Academic Foundations
+
+The core architecture and mathematical principles of **Cortex-HDC** are heavily inspired by and aligned with recent breakthroughs in applied Hyperdimensional Computing research. If you are interested in the scientific foundation behind this engine, we recommend reviewing the following academic literature:
+
+1. **[D2H-AD: A Hybrid Model Utilizing Hyperdimensional Computing for Advanced Anomaly Detection](https://ieeexplore.ieee.org/document/11455993) (IEEE Access)**
+   This study introduces a hybrid anomaly detection framework built upon HDC, demonstrating that fusing distance-based similarity (like our use of Hamming distance) with density-aware encoding significantly improves anomaly detection accuracy while maintaining a lightweight footprint suitable for edge AI.
+2. **[ODHD: One-Class Brain-Inspired Hyperdimensional Computing for Outlier Detection](https://dl.acm.org/doi/10.1145/3489517.3530395) (ACM DAC '22)**
+   This paper outlines a one-class outlier detection method leveraging the inherent robustness and computational efficiency of HDC. It validates our approach of using highly parallelizable, binary operations (`XOR` and `POPCNT`) to achieve ultra-low latency and resource-efficient processing over traditional machine learning methods.
+
+---
+
 ## License
 
 This project is distributed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
