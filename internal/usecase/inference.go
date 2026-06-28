@@ -161,7 +161,7 @@ func (i *Inference) Run(ctx context.Context, kb *domain.KnowledgeBase, logFiles 
 						if i.SendRawLogs {
 							rawLogToSend = logLine
 						}
-						i.Telemetry.ReportAnomaly(nodeID, similitud, time.Now().Unix(), vecBytes, rawLogToSend)
+						i.Telemetry.ReportAnomaly(nodeID, similitud, time.Now().Unix(), vecBytes, rawLogToSend, i.Threshold)
 					}
 				} else {
 					if i.Verbose {
