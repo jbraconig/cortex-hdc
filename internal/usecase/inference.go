@@ -23,6 +23,7 @@ type Inference struct {
 	DecayRate   float64 // 0 = disabled; 0.001 = slow; 0.01 = moderate
 	ClusterSync domain.ClusterSync
 	Telemetry   domain.TelemetryClient
+	SendRawLogs bool
 	mu          sync.Mutex
 }
 
@@ -36,6 +37,7 @@ func NewInference(
 	decayRate float64,
 	clusterSync domain.ClusterSync,
 	telemetry domain.TelemetryClient,
+	sendRawLogs bool,
 ) *Inference {
 	return &Inference{
 		Encoder:     encoder,
@@ -47,6 +49,7 @@ func NewInference(
 		DecayRate:   decayRate,
 		ClusterSync: clusterSync,
 		Telemetry:   telemetry,
+		SendRawLogs: sendRawLogs,
 	}
 }
 
@@ -153,7 +156,12 @@ func (i *Inference) Run(ctx context.Context, kb *domain.KnowledgeBase, logFiles 
 								nodeID = hostname
 							}
 						}
-						i.Telemetry.ReportAnomaly(nodeID, similitud, time.Now().Unix(), vecBytes)
+						
+						rawLogToSend := ""
+						if i.SendRawLogs {
+							rawLogToSend = logLine
+						}
+						i.Telemetry.ReportAnomaly(nodeID, similitud, time.Now().Unix(), vecBytes, rawLogToSend)
 					}
 				} else {
 					if i.Verbose {

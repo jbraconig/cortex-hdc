@@ -99,6 +99,7 @@ func TestInferenceDecayBroadcast(t *testing.T) {
 		0.01, // decayRate > 0
 		mSync,
 		nil,
+		false,
 	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

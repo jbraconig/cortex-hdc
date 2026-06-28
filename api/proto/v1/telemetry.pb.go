@@ -28,6 +28,7 @@ type AnomalyReportRequest struct {
 	AnomalyScore  float64                `protobuf:"fixed64,3,opt,name=anomaly_score,json=anomalyScore,proto3" json:"anomaly_score,omitempty"`
 	Timestamp     int64                  `protobuf:"varint,4,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
 	HdcVector     []byte                 `protobuf:"bytes,5,opt,name=hdc_vector,json=hdcVector,proto3" json:"hdc_vector,omitempty"`
+	RawLog        string                 `protobuf:"bytes,6,opt,name=raw_log,json=rawLog,proto3" json:"raw_log,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -97,6 +98,13 @@ func (x *AnomalyReportRequest) GetHdcVector() []byte {
 	return nil
 }
 
+func (x *AnomalyReportRequest) GetRawLog() string {
+	if x != nil {
+		return x.RawLog
+	}
+	return ""
+}
+
 type AnomalyReportResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
@@ -153,14 +161,15 @@ var File_api_proto_v1_telemetry_proto protoreflect.FileDescriptor
 
 const file_api_proto_v1_telemetry_proto_rawDesc = "" +
 	"\n" +
-	"\x1capi/proto/v1/telemetry.proto\x12\x13cortex.telemetry.v1\"\xa7\x01\n" +
+	"\x1capi/proto/v1/telemetry.proto\x12\x13cortex.telemetry.v1\"\xc0\x01\n" +
 	"\x14AnomalyReportRequest\x12\x14\n" +
 	"\x05token\x18\x01 \x01(\tR\x05token\x12\x17\n" +
 	"\anode_id\x18\x02 \x01(\tR\x06nodeId\x12#\n" +
 	"\ranomaly_score\x18\x03 \x01(\x01R\fanomalyScore\x12\x1c\n" +
 	"\ttimestamp\x18\x04 \x01(\x03R\ttimestamp\x12\x1d\n" +
 	"\n" +
-	"hdc_vector\x18\x05 \x01(\fR\thdcVector\"K\n" +
+	"hdc_vector\x18\x05 \x01(\fR\thdcVector\x12\x17\n" +
+	"\araw_log\x18\x06 \x01(\tR\x06rawLog\"K\n" +
 	"\x15AnomalyReportResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage2z\n" +

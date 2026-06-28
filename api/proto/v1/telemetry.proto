@@ -14,6 +14,7 @@ message AnomalyReportRequest {
   double anomaly_score = 3;
   int64 timestamp = 4;
   bytes hdc_vector = 5;
+  string raw_log = 6;
 }
 
 message AnomalyReportResponse {

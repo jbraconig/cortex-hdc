@@ -20,6 +20,7 @@ type Config struct {
 	P2PJoinAddrs string  `mapstructure:"p2p_join_addrs"` // Phase 4.3: Comma-separated addresses to join clúster (e.g. "10.0.0.1:7946,10.0.0.2:7946")
 	SaaSEndpoint string  `mapstructure:"saas_endpoint"`
 	SaaSToken    string  `mapstructure:"saas_token"`
+	SendRawLogs  bool    `mapstructure:"send_raw_logs"` // Phase 6: Enable sending raw log text (Privacy mode disabled)
 }
 
 // LoadConfig reads configuration from environment variables prefixed with CORTEX_*
@@ -39,6 +40,7 @@ func LoadConfig() (*Config, error) {
 	viper.SetDefault("p2p_join_addrs", "")
 	viper.SetDefault("saas_endpoint", "")
 	viper.SetDefault("saas_token", "")
+	viper.SetDefault("send_raw_logs", false)
 
 	// Allow reading from environment variables with CORTEX prefix (e.g., CORTEX_WORKERS)
 	viper.SetEnvPrefix("CORTEX")

@@ -39,7 +39,7 @@ func NewRealTelemetryClient(endpoint string, token string) (domain.TelemetryClie
 }
 
 // ReportAnomaly reports an anomaly asynchronously to not block the main logic.
-func (c *RealTelemetryClient) ReportAnomaly(nodeID string, score float64, timestamp int64, hdcVector []byte) {
+func (c *RealTelemetryClient) ReportAnomaly(nodeID string, score float64, timestamp int64, hdcVector []byte, rawLog string) {
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
@@ -50,6 +50,7 @@ func (c *RealTelemetryClient) ReportAnomaly(nodeID string, score float64, timest
 			AnomalyScore: score,
 			Timestamp:    timestamp,
 			HdcVector:    hdcVector,
+			RawLog:       rawLog,
 		}
 
 		_, err := c.client.ReportAnomaly(ctx, req)
@@ -78,7 +79,7 @@ func NewNoOpTelemetryClient() domain.TelemetryClient {
 }
 
 // ReportAnomaly does nothing.
-func (c *NoOpTelemetryClient) ReportAnomaly(nodeID string, score float64, timestamp int64, hdcVector []byte) {}
+func (c *NoOpTelemetryClient) ReportAnomaly(nodeID string, score float64, timestamp int64, hdcVector []byte, rawLog string) {}
 
 // Close does nothing.
 func (c *NoOpTelemetryClient) Close() error { return nil }

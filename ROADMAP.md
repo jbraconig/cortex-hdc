@@ -33,3 +33,12 @@ This document details the path forward to take Cortex-HDC from a functional prot
 - [x] **Lock-free / Batched Decay Updates**: Optimize lock contention during inference. Currently, `DecayRate > 0` uses a global mutex per healthy log line. Implement batched updates or lock-free structures to avoid bottlenecking the worker pool.
 - [x] **Backpressure and Bounded Channels**: Ensure the `LogReader` channels have strict bounded capacities. Implement drop strategies and expose "dropped_logs" metrics to handle saturation gracefully when ingestion rate exceeds processing speed.
 - [x] **Kubernetes Resource Limits**: Define empirical CPU and Memory `requests` and `limits` in the DaemonSet manifest (`daemonset.yaml`), validating them against the pprof benchmarks to guarantee Cortex doesn't cause OOMKills on nodes.
+
+## Phase 6: Native Telemetry Extension (Cortex Cloud Integration)
+
+- [x] **Extend Telemetry Proto**: Update `api/proto/v1/telemetry.proto` with the `raw_log` field (tag 6) to match the Cortex Cloud telemetry schema.
+- [x] **Privacy-First Telemetry CLI Flag**: Add the `--send-raw-logs` flag (defaulting to `false`) to ensure "Privacy by Design" for log telemetry.
+- [x] **Update Telemetry Client**: Modify the internal gRPC client `internal/infrastructure/grpc` to support sending the optional raw log field.
+- [x] **Privacy Logic Implementation**: Ensure that the raw log text is only sent in the gRPC telemetry request when `--send-raw-logs` is enabled.
+- [x] **Unit and Verification Testing**: Add tests asserting that raw logs are never sent/leaked when privacy mode is active (default).
+

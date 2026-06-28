@@ -114,7 +114,7 @@ func (c *AutoCommand) Execute(deps Dependencies) error {
 	metrics.InitMetrics(c.metricsPort)
 	reader := logreader.NewRobustTailReader()
 	httpNotifier := notifier.NewHTTPNotifier(c.webhook)
-	inference := usecase.NewInference(deps.Encoder, reader, httpNotifier, deps.Store, c.threshold, c.verbose, c.decayRate, nil, nil)
+	inference := usecase.NewInference(deps.Encoder, reader, httpNotifier, deps.Store, c.threshold, c.verbose, c.decayRate, nil, nil, false)
 
 	// Parse comma-separated files
 	rawPaths := strings.Split(c.file, ",")
