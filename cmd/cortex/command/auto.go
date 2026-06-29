@@ -15,15 +15,19 @@ import (
 )
 
 type AutoCommand struct {
-	file        string
-	workers     int
-	threshold   float64
-	webhook     string
-	verbose     bool
-	metricsPort int
-	initLogs    string
-	clusters    int
-	decayRate   float64
+	file              string
+	workers           int
+	threshold         float64
+	webhook           string
+	verbose           bool
+	metricsPort       int
+	initLogs          string
+	clusters          int
+	decayRate         float64
+	multilinePrefix   string
+	multilineTimeout  int
+	multilineMaxLines int
+	dateRegex         string
 }
 
 func (c *AutoCommand) Name() string {
@@ -40,6 +44,10 @@ func (c *AutoCommand) Parse(args []string, cfg *config.Config) {
 	initLogsFlag := autoCmd.String("init-logs", "/data/init-logs/", "Directory containing baseline logs for auto-training")
 	clustersFlag := autoCmd.Int("clusters", 0, "Number of baseline clusters (0=single, >=2=multi-cluster)")
 	decayRateFlag := autoCmd.Float64("decay-rate", 0, "Decay rate for gradual baseline adaptation (0=disabled, 0.001=slow, 0.01=moderate)")
+	multilinePrefixFlag := autoCmd.String("multiline-prefix", "", "Prefix to detect start of log lines")
+	multilineTimeoutFlag := autoCmd.Int("multiline-timeout", 500, "Timeout in ms to flush buffer")
+	multilineMaxLinesFlag := autoCmd.Int("multiline-max-lines", 5, "Max lines to buffer per log")
+	dateRegexFlag := autoCmd.String("date-regex", "", "Regex to match and mask dates/timestamps")
 	autoCmd.Parse(args)
 
 	c.file = cfg.File
@@ -51,6 +59,10 @@ func (c *AutoCommand) Parse(args []string, cfg *config.Config) {
 	c.initLogs = cfg.InitLogs
 	c.clusters = cfg.Clusters
 	c.decayRate = cfg.DecayRate
+	c.multilinePrefix = cfg.MultilinePrefix
+	c.multilineTimeout = cfg.MultilineTimeout
+	c.multilineMaxLines = cfg.MultilineMaxLines
+	c.dateRegex = cfg.DateRegex
 
 	autoCmd.Visit(func(f *flag.Flag) {
 		switch f.Name {
@@ -70,6 +82,14 @@ func (c *AutoCommand) Parse(args []string, cfg *config.Config) {
 			c.clusters = *clustersFlag
 		case "decay-rate":
 			c.decayRate = *decayRateFlag
+		case "multiline-prefix":
+			c.multilinePrefix = *multilinePrefixFlag
+		case "multiline-timeout":
+			c.multilineTimeout = *multilineTimeoutFlag
+		case "multiline-max-lines":
+			c.multilineMaxLines = *multilineMaxLinesFlag
+		case "date-regex":
+			c.dateRegex = *dateRegexFlag
 		}
 	})
 
@@ -86,7 +106,8 @@ func (c *AutoCommand) Execute(deps Dependencies) error {
 	if _, err := os.Stat(dbFile); os.IsNotExist(err) {
 		fmt.Printf("[CORTEX] No knowledge base found at %s. Auto-training from %s ...\n", dbFile, c.initLogs)
 		if info, err := os.Stat(c.initLogs); err == nil && info.IsDir() {
-			trainer := usecase.NewTrainer(deps.Encoder, deps.Store)
+			sanitizer := logreader.NewLogSanitizer(c.dateRegex)
+			trainer := usecase.NewTrainer(deps.Encoder, deps.Store, c.multilinePrefix, c.multilineMaxLines, sanitizer)
 			if err := trainer.TrainFromDirectory(c.initLogs, dbFile, c.clusters); err != nil {
 				fmt.Printf("Error during auto-training: %v\n", err)
 				os.Exit(1)
@@ -112,9 +133,10 @@ func (c *AutoCommand) Execute(deps Dependencies) error {
 	}
 
 	metrics.InitMetrics(c.metricsPort)
-	reader := logreader.NewRobustTailReader()
+	sanitizer := logreader.NewLogSanitizer(c.dateRegex)
+	reader := logreader.NewRobustTailReader(c.multilinePrefix, c.multilineTimeout, c.multilineMaxLines)
 	httpNotifier := notifier.NewHTTPNotifier(c.webhook)
-	inference := usecase.NewInference(deps.Encoder, reader, httpNotifier, deps.Store, c.threshold, c.verbose, c.decayRate, nil, nil, false, 0)
+	inference := usecase.NewInference(deps.Encoder, reader, httpNotifier, deps.Store, c.threshold, c.verbose, c.decayRate, nil, nil, false, 0, sanitizer)
 
 	// Parse comma-separated files
 	rawPaths := strings.Split(c.file, ",")

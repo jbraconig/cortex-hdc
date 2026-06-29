@@ -18,20 +18,24 @@ import (
 )
 
 type InferCommand struct {
-	file         string
-	workers      int
-	threshold    float64
-	webhook      string
-	verbose      bool
-	metricsPort  int
-	decayRate    float64
-	p2pEnabled   bool
-	p2pBindPort  int
-	p2pJoinAddrs string
+	file              string
+	workers           int
+	threshold         float64
+	webhook           string
+	verbose           bool
+	metricsPort       int
+	decayRate         float64
+	p2pEnabled        bool
+	p2pBindPort       int
+	p2pJoinAddrs      string
 	saasEndpoint      string
 	saasToken         string
 	sendRawLogs       bool
 	heartbeatInterval int
+	multilinePrefix   string
+	multilineTimeout  int
+	multilineMaxLines int
+	dateRegex         string
 }
 
 func (c *InferCommand) Name() string {
@@ -53,6 +57,10 @@ func (c *InferCommand) Parse(args []string, cfg *config.Config) {
 	saasTokenFlag := inferCmd.String("saas-token", "", "Authentication token for SaaS Control Plane")
 	sendRawLogsFlag := inferCmd.Bool("send-raw-logs", false, "DANGER: Send cleartext logs to Cortex Cloud alongside the HDC Vector. Disables privacy mode.")
 	heartbeatIntervalFlag := inferCmd.Int("heartbeat-interval", 60, "Interval in seconds to send heartbeats to SaaS Control Plane")
+	multilinePrefixFlag := inferCmd.String("multiline-prefix", "", "Prefix to detect start of log lines")
+	multilineTimeoutFlag := inferCmd.Int("multiline-timeout", 500, "Timeout in ms to flush buffer")
+	multilineMaxLinesFlag := inferCmd.Int("multiline-max-lines", 5, "Max lines to buffer per log")
+	dateRegexFlag := inferCmd.String("date-regex", "", "Regex to match and mask dates/timestamps")
 	inferCmd.Parse(args)
 
 	c.file = cfg.File
@@ -69,6 +77,10 @@ func (c *InferCommand) Parse(args []string, cfg *config.Config) {
 	c.saasToken = cfg.SaaSToken
 	c.sendRawLogs = cfg.SendRawLogs
 	c.heartbeatInterval = cfg.HeartbeatInterval
+	c.multilinePrefix = cfg.MultilinePrefix
+	c.multilineTimeout = cfg.MultilineTimeout
+	c.multilineMaxLines = cfg.MultilineMaxLines
+	c.dateRegex = cfg.DateRegex
 
 	inferCmd.Visit(func(f *flag.Flag) {
 		switch f.Name {
@@ -98,6 +110,14 @@ func (c *InferCommand) Parse(args []string, cfg *config.Config) {
 			c.sendRawLogs = *sendRawLogsFlag
 		case "heartbeat-interval":
 			c.heartbeatInterval = *heartbeatIntervalFlag
+		case "multiline-prefix":
+			c.multilinePrefix = *multilinePrefixFlag
+		case "multiline-timeout":
+			c.multilineTimeout = *multilineTimeoutFlag
+		case "multiline-max-lines":
+			c.multilineMaxLines = *multilineMaxLinesFlag
+		case "date-regex":
+			c.dateRegex = *dateRegexFlag
 		}
 	})
 
@@ -124,7 +144,8 @@ func (c *InferCommand) Execute(deps Dependencies) error {
 	}
 
 	metrics.InitMetrics(c.metricsPort)
-	reader := logreader.NewRobustTailReader()
+	sanitizer := logreader.NewLogSanitizer(c.dateRegex)
+	reader := logreader.NewRobustTailReader(c.multilinePrefix, c.multilineTimeout, c.multilineMaxLines)
 	httpNotifier := notifier.NewHTTPNotifier(c.webhook)
 
 	// Initialize P2P synchronization if explicitly enabled
@@ -159,7 +180,7 @@ func (c *InferCommand) Execute(deps Dependencies) error {
 		telemetryClient = grpc.NewNoOpTelemetryClient()
 	}
 
-	inference := usecase.NewInference(deps.Encoder, reader, httpNotifier, deps.Store, c.threshold, c.verbose, c.decayRate, gossipNode, telemetryClient, c.sendRawLogs, c.heartbeatInterval)
+	inference := usecase.NewInference(deps.Encoder, reader, httpNotifier, deps.Store, c.threshold, c.verbose, c.decayRate, gossipNode, telemetryClient, c.sendRawLogs, c.heartbeatInterval, sanitizer)
 
 	// Parse comma-separated files
 	rawPaths := strings.Split(c.file, ",")

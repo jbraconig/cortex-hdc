@@ -16,12 +16,18 @@ import (
 type Trainer struct {
 	Encoder     domain.Encoder
 	Persistence domain.Persistence
+	prefix      string
+	maxLines    int
+	sanitizer   *logreader.LogSanitizer
 }
 
-func NewTrainer(encoder domain.Encoder, persistence domain.Persistence) *Trainer {
+func NewTrainer(encoder domain.Encoder, persistence domain.Persistence, prefix string, maxLines int, sanitizer *logreader.LogSanitizer) *Trainer {
 	return &Trainer{
 		Encoder:     encoder,
 		Persistence: persistence,
+		prefix:      prefix,
+		maxLines:    maxLines,
+		sanitizer:   sanitizer,
 	}
 }
 
@@ -73,7 +79,7 @@ func (t *Trainer) processVectors(kb *domain.KnowledgeBase, path string, callback
 }
 
 func (t *Trainer) processFileVectors(kb *domain.KnowledgeBase, filePath string, callback func(domain.HVector)) error {
-	ch, err := logreader.ReadStaticLogs(filePath)
+	ch, err := logreader.ReadStaticLogs(filePath, t.prefix, t.maxLines)
 	if err != nil {
 		return err
 	}
@@ -82,7 +88,11 @@ func (t *Trainer) processFileVectors(kb *domain.KnowledgeBase, filePath string, 
 		if line == "" {
 			continue
 		}
-		vec := t.Encoder.EncodeLine(kb, line)
+		sanitizedLine := line
+		if t.sanitizer != nil {
+			sanitizedLine = t.sanitizer.Sanitize(line)
+		}
+		vec := t.Encoder.EncodeLine(kb, sanitizedLine)
 		callback(vec)
 	}
 	return nil

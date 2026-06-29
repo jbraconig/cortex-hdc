@@ -4,16 +4,26 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/nxadm/tail"
 )
 
 // RobustTailReader implements the domain.LogReader interface using robust tailing
-type RobustTailReader struct{}
+type RobustTailReader struct {
+	prefix    string
+	timeoutMs int
+	maxLines  int
+}
 
-func NewRobustTailReader() *RobustTailReader {
-	return &RobustTailReader{}
+func NewRobustTailReader(prefix string, timeoutMs int, maxLines int) *RobustTailReader {
+	return &RobustTailReader{
+		prefix:    prefix,
+		timeoutMs: timeoutMs,
+		maxLines:  maxLines,
+	}
 }
 
 // ReadLogs reads log lines in real time supporting multiple files and rotation.
@@ -55,27 +65,75 @@ func (r *RobustTailReader) ReadLogs(ctx context.Context, filePaths []string) (<-
 		wg.Add(1)
 		go func(tailer *tail.Tail) {
 			defer wg.Done()
+
+			var logBuffer strings.Builder
+			var lineCount int
+
+			flushTimeout := time.Duration(r.timeoutMs) * time.Millisecond
+			ticker := time.NewTicker(flushTimeout)
+			defer ticker.Stop()
+
+			flushBuffer := func() {
+				if logBuffer.Len() > 0 {
+					finalLog := logBuffer.String()
+					select {
+					case ch <- finalLog:
+					case <-ctx.Done():
+					}
+					logBuffer.Reset()
+					lineCount = 0
+				}
+			}
+
 			for {
 				select {
 				case <-ctx.Done():
+					flushBuffer()
 					tailer.Stop()
 					tailer.Cleanup()
 					return
+				case <-ticker.C:
+					flushBuffer()
 				case line, ok := <-tailer.Lines:
 					if !ok {
+						flushBuffer()
 						return
 					}
 					if line.Err != nil {
 						continue
 					}
-					// Send line to the multiplexed channel with context check
-					select {
-					case <-ctx.Done():
-						tailer.Stop()
-						tailer.Cleanup()
-						return
-					case ch <- line.Text:
+
+					text := line.Text
+
+					if r.prefix == "" {
+						select {
+						case ch <- text:
+						case <-ctx.Done():
+							tailer.Stop()
+							tailer.Cleanup()
+							return
+						}
+						continue
 					}
+
+					if strings.HasPrefix(text, r.prefix) {
+						flushBuffer()
+						logBuffer.WriteString(text)
+						lineCount = 1
+					} else {
+						if r.maxLines > 0 && lineCount >= r.maxLines {
+							continue
+						}
+						if logBuffer.Len() > 0 {
+							logBuffer.WriteString("\n")
+							logBuffer.WriteString(text)
+							lineCount++
+						} else {
+							logBuffer.WriteString(text)
+							lineCount = 1
+						}
+					}
+					ticker.Reset(flushTimeout)
 				}
 			}
 		}(t)

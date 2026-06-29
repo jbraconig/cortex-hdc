@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jbraconig/cortex-hdc/internal/domain"
+	"github.com/jbraconig/cortex-hdc/internal/infrastructure/logreader"
 	"github.com/jbraconig/cortex-hdc/internal/infrastructure/metrics"
 )
 
@@ -25,6 +26,7 @@ type Inference struct {
 	Telemetry         domain.TelemetryClient
 	SendRawLogs       bool
 	HeartbeatInterval int
+	Sanitizer         *logreader.LogSanitizer
 	mu                sync.Mutex
 }
 
@@ -40,6 +42,7 @@ func NewInference(
 	telemetry domain.TelemetryClient,
 	sendRawLogs bool,
 	heartbeatInterval int,
+	sanitizer *logreader.LogSanitizer,
 ) *Inference {
 	return &Inference{
 		Encoder:           encoder,
@@ -53,6 +56,7 @@ func NewInference(
 		Telemetry:         telemetry,
 		SendRawLogs:       sendRawLogs,
 		HeartbeatInterval: heartbeatInterval,
+		Sanitizer:         sanitizer,
 	}
 }
 
@@ -158,8 +162,13 @@ func (i *Inference) Run(ctx context.Context, kb *domain.KnowledgeBase, logFiles 
 					metrics.GlobalMetrics.LogsProcessed.Inc()
 				}
 
+				sanitizedLog := logLine
+				if i.Sanitizer != nil {
+					sanitizedLog = i.Sanitizer.Sanitize(logLine)
+				}
+
 				// Convert line to high-dimensional vector
-				vectorLog := i.Encoder.EncodeLine(kb, logLine)
+				vectorLog := i.Encoder.EncodeLine(kb, sanitizedLog)
 
 				// Compare against the best matching baseline (single or multi-cluster)
 				similitud := kb.BestSimilarity(vectorLog)
@@ -173,7 +182,7 @@ func (i *Inference) Run(ctx context.Context, kb *domain.KnowledgeBase, logFiles 
 					if metrics.GlobalMetrics != nil {
 						metrics.GlobalMetrics.AnomaliesDetected.Inc()
 					}
-					fmt.Printf("%s[ANOMALY: %.2f%%] %s%s\n", colorRed, similitud*100, logLine, colorReset)
+					fmt.Printf("%s[ANOMALY: %.2f%%] %s%s\n", colorRed, similitud*100, sanitizedLog, colorReset)
 					_ = i.Notifier.Notify(logLine, similitud)
 
 					// Report anomaly to SaaS via gRPC
@@ -196,7 +205,7 @@ func (i *Inference) Run(ctx context.Context, kb *domain.KnowledgeBase, logFiles 
 					}
 				} else {
 					if i.Verbose {
-						fmt.Printf("%s[OK: %.2f%%] %s%s\n", colorGray, similitud*100, logLine, colorReset)
+						fmt.Printf("%s[OK: %.2f%%] %s%s\n", colorGray, similitud*100, sanitizedLog, colorReset)
 					}
 
 					// --- Memory Decay (Phase 3.3): adapt baseline toward healthy logs ---

@@ -101,6 +101,7 @@ func TestInferenceDecayBroadcast(t *testing.T) {
 		nil,
 		false,
 		0,
+		nil,
 	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -169,6 +170,7 @@ func TestInferenceHeartbeat(t *testing.T) {
 		teleClient,
 		false,
 		1, // 1 second interval
+		nil,
 	)
 
 	ctx, cancel := context.WithCancel(context.Background())
