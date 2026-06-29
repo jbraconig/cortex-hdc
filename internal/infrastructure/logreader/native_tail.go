@@ -2,6 +2,7 @@ package logreader
 
 import (
 	"bufio"
+	"log"
 	"os"
 	"strings"
 )
@@ -60,6 +61,10 @@ func ReadStaticLogs(filepath string, prefix string, maxLines int) (<-chan string
 			}
 		}
 		flushBuffer()
+
+		if err := scanner.Err(); err != nil {
+			log.Printf("Error scanning file %s: %v", filepath, err)
+		}
 	}()
 
 	return ch, nil

@@ -74,22 +74,52 @@ If you want the engine to automatically train on the first run if the knowledge 
 ./cortex auto --file /var/log/syslog,/var/log/mysql.log --init-logs /path/to/baseline/logs/ --clusters 3
 ```
 
-#### Inference Flags
+### Configuration Flags
 
-- `--file`: The path to the live log file(s) to monitor. Separate multiple files with commas for high-performance concurrent tailing.
-- `--workers` *(optional, default 4)*: Number of concurrent goroutines assigned to process log lines simultaneously.
-- `--clusters` *(optional, default 0)*: Use K-Means clustering to generate $K$ distinct baselines. Essential when training with highly diverse log formats to avoid vector saturation.
-- `--threshold` *(optional, default 0.65)*: Minimum mathematical similarity level required (0.0 to 1.0). If not provided, Cortex will automatically use the optimal threshold suggested during training.
-- `--decay-rate` *(optional, default 0.0)*: Memory Decay rate (e.g., `0.01`). Allows the baseline to gradually adapt to new healthy logs in production using Exponential Moving Average, avoiding obsolescence.
-- `--webhook` *(optional)*: HTTP POST endpoint (JSON format) where anomaly alerts will be dispatched.
+Below are the detailed flags for each command (`train`, `infer`, `auto`).
+
+#### 1. `train` Command Flags
+Used to build the baseline database from a healthy log file.
+- `--file` *(required)*: Path to the healthy log file to train on.
+- `--clusters` *(optional, default 0)*: Number of baseline clusters. Use `>= 2` to enable Mini-Batch K-Means clustering.
+- `--multiline-prefix` *(optional)*: Prefix (literal string or prefix substring) to detect the start of a log line. Subsequent lines not matching this prefix will be buffered as a single multiline log entry.
+- `--multiline-max-lines` *(optional, default 5)*: Maximum number of lines to buffer for a single multiline log entry.
+- `--date-regex` *(optional)*: Custom regular expression to match and mask timestamps (replaced by `<DATE>`). Note that Cortex-HDC already automatically filters standard log timestamps by default.
+
+#### 2. `infer` Command Flags
+Used for real-time anomaly detection.
+- `--file` *(required)*: Path to the live log file(s) to monitor. Multiple files can be separated by commas (e.g. `/var/log/syslog,/var/log/nginx.log`).
+- `--workers` *(optional, default 4)*: Number of concurrent processing worker goroutines.
+- `--threshold` *(optional, default 0.65)*: Mathematical similarity threshold. If anomaly similarity falls below this threshold, alert notifications are triggered. If not specified, the system will use the auto-tuned threshold stored in `cortex.kv`.
+- `--webhook` *(optional)*: HTTP POST endpoint where alerts will be dispatched in JSON format.
+- `--decay-rate` *(optional, default 0.0)*: Learning rate for Memory Decay (e.g. `0.001`), enabling online adaptation of the baseline towards incoming healthy logs.
 - `--p2p` *(optional, default false)*: Enable P2P baseline synchronization across nodes.
 - `--p2p-bind` *(optional, default 7946)*: Port for P2P gossip communication.
-- `--p2p-join` *(optional)*: Comma-separated seed addresses to join (e.g. `10.0.0.1:7946,10.0.0.2:7946`).
-- `--saas-endpoint` *(optional)*: SaaS Control Plane gRPC endpoint (e.g. `cloud.yourcompany.com:50051`).
-- `--saas-token` *(optional)*: Authentication token for the SaaS Control Plane.
-- `--heartbeat-interval` *(optional, default 60)*: Interval in seconds between node heartbeats (signals of life) sent to the SaaS Control Plane.
-- `--send-raw-logs` *(optional, default false)*: Enable sending raw log details of anomalies to the SaaS Control Plane.
-- `--verbose` *(optional)*: Prints all log lines, not just anomalies. Normal lines in gray, anomalies in red.
+- `--p2p-join` *(optional)*: Seed node addresses to join (comma-separated, e.g. `10.0.0.1:7946,10.0.0.2:7946`).
+- `--saas-endpoint` *(optional)*: SaaS Control Plane gRPC endpoint (e.g., `cloud.yourcompany.com:50051`).
+- `--saas-token` *(optional)*: Authentication token for SaaS Control Plane.
+- `--heartbeat-interval` *(optional, default 60)*: Telemetry heartbeat interval in seconds.
+- `--send-raw-logs` *(optional, default false)*: Send unmasked raw logs to the SaaS portal during anomaly reporting (disables privacy mode).
+- `--multiline-prefix` *(optional)*: Prefix to detect the start of log lines (e.g., `2026-`).
+- `--multiline-timeout` *(optional, default 500)*: Timeout in milliseconds to flush the multiline buffer if no new log line arrives.
+- `--multiline-max-lines` *(optional, default 5)*: Maximum lines to buffer per multiline entry.
+- `--date-regex` *(optional)*: Custom regular expression to match and mask timestamps.
+- `--verbose` *(optional, default false)*: Print all logs (`[OK]` and `[ANOMALY]`) to stdout instead of only alerting on anomalies.
+
+#### 3. `auto` Command Flags
+Combines both training and inference. Trains from initial directory if the database is missing.
+- `--file` *(required)*: Path to the live log file(s) to monitor (comma-separated).
+- `--init-logs` *(optional, default `/data/init-logs/`)*: Directory containing baseline healthy logs for auto-training.
+- `--workers` *(optional, default 4)*: Number of concurrent processing workers.
+- `--clusters` *(optional, default 0)*: Number of baseline clusters to train (using Mini-Batch K-Means).
+- `--threshold` *(optional, default 0.65)*: Mathematical similarity threshold.
+- `--webhook` *(optional)*: HTTP POST endpoint for alerts.
+- `--decay-rate` *(optional, default 0.0)*: Learning rate for Memory Decay.
+- `--multiline-prefix` *(optional)*: Prefix to detect the start of log lines.
+- `--multiline-timeout` *(optional, default 500)*: Timeout in milliseconds to flush the multiline buffer.
+- `--multiline-max-lines` *(optional, default 5)*: Maximum lines to buffer per multiline entry.
+- `--date-regex` *(optional)*: Custom regular expression to match and mask timestamps.
+- `--verbose` *(optional, default false)*: Print all logs to stdout.
 
 ---
 
