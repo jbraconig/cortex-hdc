@@ -165,6 +165,118 @@ func (x *AnomalyReportResponse) GetMessage() string {
 	return ""
 }
 
+type HeartbeatRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Token         string                 `protobuf:"bytes,1,opt,name=token,proto3" json:"token,omitempty"`
+	NodeId        string                 `protobuf:"bytes,2,opt,name=node_id,json=nodeId,proto3" json:"node_id,omitempty"`
+	Timestamp     int64                  `protobuf:"varint,3,opt,name=timestamp,proto3" json:"timestamp,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HeartbeatRequest) Reset() {
+	*x = HeartbeatRequest{}
+	mi := &file_api_proto_v1_telemetry_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HeartbeatRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HeartbeatRequest) ProtoMessage() {}
+
+func (x *HeartbeatRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_v1_telemetry_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HeartbeatRequest.ProtoReflect.Descriptor instead.
+func (*HeartbeatRequest) Descriptor() ([]byte, []int) {
+	return file_api_proto_v1_telemetry_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *HeartbeatRequest) GetToken() string {
+	if x != nil {
+		return x.Token
+	}
+	return ""
+}
+
+func (x *HeartbeatRequest) GetNodeId() string {
+	if x != nil {
+		return x.NodeId
+	}
+	return ""
+}
+
+func (x *HeartbeatRequest) GetTimestamp() int64 {
+	if x != nil {
+		return x.Timestamp
+	}
+	return 0
+}
+
+type HeartbeatResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Success       bool                   `protobuf:"varint,1,opt,name=success,proto3" json:"success,omitempty"`
+	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HeartbeatResponse) Reset() {
+	*x = HeartbeatResponse{}
+	mi := &file_api_proto_v1_telemetry_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HeartbeatResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HeartbeatResponse) ProtoMessage() {}
+
+func (x *HeartbeatResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_proto_v1_telemetry_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HeartbeatResponse.ProtoReflect.Descriptor instead.
+func (*HeartbeatResponse) Descriptor() ([]byte, []int) {
+	return file_api_proto_v1_telemetry_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *HeartbeatResponse) GetSuccess() bool {
+	if x != nil {
+		return x.Success
+	}
+	return false
+}
+
+func (x *HeartbeatResponse) GetMessage() string {
+	if x != nil {
+		return x.Message
+	}
+	return ""
+}
+
 var File_api_proto_v1_telemetry_proto protoreflect.FileDescriptor
 
 const file_api_proto_v1_telemetry_proto_rawDesc = "" +
@@ -181,9 +293,17 @@ const file_api_proto_v1_telemetry_proto_rawDesc = "" +
 	"\tthreshold\x18\a \x01(\x01R\tthreshold\"K\n" +
 	"\x15AnomalyReportResponse\x12\x18\n" +
 	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage2z\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"_\n" +
+	"\x10HeartbeatRequest\x12\x14\n" +
+	"\x05token\x18\x01 \x01(\tR\x05token\x12\x17\n" +
+	"\anode_id\x18\x02 \x01(\tR\x06nodeId\x12\x1c\n" +
+	"\ttimestamp\x18\x03 \x01(\x03R\ttimestamp\"G\n" +
+	"\x11HeartbeatResponse\x12\x18\n" +
+	"\asuccess\x18\x01 \x01(\bR\asuccess\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage2\xda\x01\n" +
 	"\x10TelemetryService\x12f\n" +
-	"\rReportAnomaly\x12).cortex.telemetry.v1.AnomalyReportRequest\x1a*.cortex.telemetry.v1.AnomalyReportResponseB:Z8github.com/jbraconig/cortex-hdc/api/proto/v1;telemetryv1b\x06proto3"
+	"\rReportAnomaly\x12).cortex.telemetry.v1.AnomalyReportRequest\x1a*.cortex.telemetry.v1.AnomalyReportResponse\x12^\n" +
+	"\rSendHeartbeat\x12%.cortex.telemetry.v1.HeartbeatRequest\x1a&.cortex.telemetry.v1.HeartbeatResponseB:Z8github.com/jbraconig/cortex-hdc/api/proto/v1;telemetryv1b\x06proto3"
 
 var (
 	file_api_proto_v1_telemetry_proto_rawDescOnce sync.Once
@@ -197,16 +317,20 @@ func file_api_proto_v1_telemetry_proto_rawDescGZIP() []byte {
 	return file_api_proto_v1_telemetry_proto_rawDescData
 }
 
-var file_api_proto_v1_telemetry_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_api_proto_v1_telemetry_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_api_proto_v1_telemetry_proto_goTypes = []any{
 	(*AnomalyReportRequest)(nil),  // 0: cortex.telemetry.v1.AnomalyReportRequest
 	(*AnomalyReportResponse)(nil), // 1: cortex.telemetry.v1.AnomalyReportResponse
+	(*HeartbeatRequest)(nil),      // 2: cortex.telemetry.v1.HeartbeatRequest
+	(*HeartbeatResponse)(nil),     // 3: cortex.telemetry.v1.HeartbeatResponse
 }
 var file_api_proto_v1_telemetry_proto_depIdxs = []int32{
 	0, // 0: cortex.telemetry.v1.TelemetryService.ReportAnomaly:input_type -> cortex.telemetry.v1.AnomalyReportRequest
-	1, // 1: cortex.telemetry.v1.TelemetryService.ReportAnomaly:output_type -> cortex.telemetry.v1.AnomalyReportResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
+	2, // 1: cortex.telemetry.v1.TelemetryService.SendHeartbeat:input_type -> cortex.telemetry.v1.HeartbeatRequest
+	1, // 2: cortex.telemetry.v1.TelemetryService.ReportAnomaly:output_type -> cortex.telemetry.v1.AnomalyReportResponse
+	3, // 3: cortex.telemetry.v1.TelemetryService.SendHeartbeat:output_type -> cortex.telemetry.v1.HeartbeatResponse
+	2, // [2:4] is the sub-list for method output_type
+	0, // [0:2] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -223,7 +347,7 @@ func file_api_proto_v1_telemetry_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_proto_v1_telemetry_proto_rawDesc), len(file_api_proto_v1_telemetry_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

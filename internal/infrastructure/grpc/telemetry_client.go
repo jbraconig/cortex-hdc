@@ -71,6 +71,27 @@ func (c *RealTelemetryClient) Close() error {
 	return nil
 }
 
+// SendHeartbeat sends a heartbeat ping asynchronously.
+func (c *RealTelemetryClient) SendHeartbeat(nodeID string) {
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+
+		req := &pb.HeartbeatRequest{
+			Token:     c.token,
+			NodeId:    nodeID,
+			Timestamp: time.Now().Unix(),
+		}
+
+		_, err := c.client.SendHeartbeat(ctx, req)
+		if err != nil {
+			log.Printf("[WARN] Heartbeat failed: %v", err)
+		} else {
+			log.Printf("[INFO] Heartbeat sent successfully for node %s", nodeID)
+		}
+	}()
+}
+
 // NoOpTelemetryClient implements a no-op TelemetryClient when SaaS is disabled.
 type NoOpTelemetryClient struct{}
 
@@ -81,6 +102,9 @@ func NewNoOpTelemetryClient() domain.TelemetryClient {
 
 // ReportAnomaly does nothing.
 func (c *NoOpTelemetryClient) ReportAnomaly(nodeID string, score float64, timestamp int64, hdcVector []byte, rawLog string, threshold float64) {}
+
+// SendHeartbeat does nothing.
+func (c *NoOpTelemetryClient) SendHeartbeat(nodeID string) {}
 
 // Close does nothing.
 func (c *NoOpTelemetryClient) Close() error { return nil }

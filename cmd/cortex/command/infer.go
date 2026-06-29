@@ -28,9 +28,10 @@ type InferCommand struct {
 	p2pEnabled   bool
 	p2pBindPort  int
 	p2pJoinAddrs string
-	saasEndpoint string
-	saasToken    string
-	sendRawLogs  bool
+	saasEndpoint      string
+	saasToken         string
+	sendRawLogs       bool
+	heartbeatInterval int
 }
 
 func (c *InferCommand) Name() string {
@@ -51,6 +52,7 @@ func (c *InferCommand) Parse(args []string, cfg *config.Config) {
 	saasEndpointFlag := inferCmd.String("saas-endpoint", "", "SaaS Control Plane gRPC endpoint (e.g. localhost:50051)")
 	saasTokenFlag := inferCmd.String("saas-token", "", "Authentication token for SaaS Control Plane")
 	sendRawLogsFlag := inferCmd.Bool("send-raw-logs", false, "DANGER: Send cleartext logs to Cortex Cloud alongside the HDC Vector. Disables privacy mode.")
+	heartbeatIntervalFlag := inferCmd.Int("heartbeat-interval", 60, "Interval in seconds to send heartbeats to SaaS Control Plane")
 	inferCmd.Parse(args)
 
 	c.file = cfg.File
@@ -66,6 +68,7 @@ func (c *InferCommand) Parse(args []string, cfg *config.Config) {
 	c.saasEndpoint = cfg.SaaSEndpoint
 	c.saasToken = cfg.SaaSToken
 	c.sendRawLogs = cfg.SendRawLogs
+	c.heartbeatInterval = cfg.HeartbeatInterval
 
 	inferCmd.Visit(func(f *flag.Flag) {
 		switch f.Name {
@@ -93,6 +96,8 @@ func (c *InferCommand) Parse(args []string, cfg *config.Config) {
 			c.saasToken = *saasTokenFlag
 		case "send-raw-logs":
 			c.sendRawLogs = *sendRawLogsFlag
+		case "heartbeat-interval":
+			c.heartbeatInterval = *heartbeatIntervalFlag
 		}
 	})
 
@@ -154,7 +159,7 @@ func (c *InferCommand) Execute(deps Dependencies) error {
 		telemetryClient = grpc.NewNoOpTelemetryClient()
 	}
 
-	inference := usecase.NewInference(deps.Encoder, reader, httpNotifier, deps.Store, c.threshold, c.verbose, c.decayRate, gossipNode, telemetryClient, c.sendRawLogs)
+	inference := usecase.NewInference(deps.Encoder, reader, httpNotifier, deps.Store, c.threshold, c.verbose, c.decayRate, gossipNode, telemetryClient, c.sendRawLogs, c.heartbeatInterval)
 
 	// Parse comma-separated files
 	rawPaths := strings.Split(c.file, ",")

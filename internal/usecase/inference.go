@@ -22,9 +22,10 @@ type Inference struct {
 	Verbose     bool
 	DecayRate   float64 // 0 = disabled; 0.001 = slow; 0.01 = moderate
 	ClusterSync domain.ClusterSync
-	Telemetry   domain.TelemetryClient
-	SendRawLogs bool
-	mu          sync.Mutex
+	Telemetry         domain.TelemetryClient
+	SendRawLogs       bool
+	HeartbeatInterval int
+	mu                sync.Mutex
 }
 
 func NewInference(
@@ -38,18 +39,20 @@ func NewInference(
 	clusterSync domain.ClusterSync,
 	telemetry domain.TelemetryClient,
 	sendRawLogs bool,
+	heartbeatInterval int,
 ) *Inference {
 	return &Inference{
-		Encoder:     encoder,
-		LogReader:   logReader,
-		Notifier:    notifier,
-		Store:       store,
-		Threshold:   threshold,
-		Verbose:     verbose,
-		DecayRate:   decayRate,
-		ClusterSync: clusterSync,
-		Telemetry:   telemetry,
-		SendRawLogs: sendRawLogs,
+		Encoder:           encoder,
+		LogReader:         logReader,
+		Notifier:          notifier,
+		Store:             store,
+		Threshold:         threshold,
+		Verbose:           verbose,
+		DecayRate:         decayRate,
+		ClusterSync:       clusterSync,
+		Telemetry:         telemetry,
+		SendRawLogs:       sendRawLogs,
+		HeartbeatInterval: heartbeatInterval,
 	}
 }
 
@@ -64,6 +67,34 @@ func (i *Inference) Run(ctx context.Context, kb *domain.KnowledgeBase, logFiles 
 	logsStream, err := i.LogReader.ReadLogs(ctx, logFiles)
 	if err != nil {
 		return fmt.Errorf("could not open log stream: %w", err)
+	}
+
+	// --- Heartbeat goroutine ---
+	if i.Telemetry != nil && i.HeartbeatInterval > 0 {
+		go func() {
+			nodeID := "local-agent"
+			if i.ClusterSync != nil {
+				nodeID = i.ClusterSync.NodeName()
+			} else {
+				if hostname, err := os.Hostname(); err == nil {
+					nodeID = hostname
+				}
+			}
+
+			// Send initial heartbeat immediately
+			i.Telemetry.SendHeartbeat(nodeID)
+
+			ticker := time.NewTicker(time.Duration(i.HeartbeatInterval) * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case <-ticker.C:
+					i.Telemetry.SendHeartbeat(nodeID)
+				}
+			}
+		}()
 	}
 
 	// --- Auto-save goroutine for Memory Decay ---

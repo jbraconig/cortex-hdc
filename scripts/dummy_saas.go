@@ -53,6 +53,11 @@ func (s *server) ReportAnomaly(ctx context.Context, req *pb.AnomalyReportRequest
 	return &pb.AnomalyReportResponse{Success: true, Message: "Report received"}, nil
 }
 
+func (s *server) SendHeartbeat(ctx context.Context, req *pb.HeartbeatRequest) (*pb.HeartbeatResponse, error) {
+	log.Printf("[DUMMY-SaaS] Received heartbeat from node %s", req.NodeId)
+	return &pb.HeartbeatResponse{Success: true, Message: "Heartbeat received"}, nil
+}
+
 func main() {
 	lis, err := net.Listen("tcp", ":50051")
 	if err != nil {

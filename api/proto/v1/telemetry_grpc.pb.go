@@ -20,6 +20,7 @@ const _ = grpc.SupportPackageIsVersion9
 
 const (
 	TelemetryService_ReportAnomaly_FullMethodName = "/cortex.telemetry.v1.TelemetryService/ReportAnomaly"
+	TelemetryService_SendHeartbeat_FullMethodName = "/cortex.telemetry.v1.TelemetryService/SendHeartbeat"
 )
 
 // TelemetryServiceClient is the client API for TelemetryService service.
@@ -27,6 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TelemetryServiceClient interface {
 	ReportAnomaly(ctx context.Context, in *AnomalyReportRequest, opts ...grpc.CallOption) (*AnomalyReportResponse, error)
+	SendHeartbeat(ctx context.Context, in *HeartbeatRequest, opts ...grpc.CallOption) (*HeartbeatResponse, error)
 }
 
 type telemetryServiceClient struct {
@@ -47,11 +49,22 @@ func (c *telemetryServiceClient) ReportAnomaly(ctx context.Context, in *AnomalyR
 	return out, nil
 }
 
+func (c *telemetryServiceClient) SendHeartbeat(ctx context.Context, in *HeartbeatRequest, opts ...grpc.CallOption) (*HeartbeatResponse, error) {
+	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
+	out := new(HeartbeatResponse)
+	err := c.cc.Invoke(ctx, TelemetryService_SendHeartbeat_FullMethodName, in, out, cOpts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TelemetryServiceServer is the server API for TelemetryService service.
 // All implementations must embed UnimplementedTelemetryServiceServer
 // for forward compatibility.
 type TelemetryServiceServer interface {
 	ReportAnomaly(context.Context, *AnomalyReportRequest) (*AnomalyReportResponse, error)
+	SendHeartbeat(context.Context, *HeartbeatRequest) (*HeartbeatResponse, error)
 	mustEmbedUnimplementedTelemetryServiceServer()
 }
 
@@ -64,6 +77,9 @@ type UnimplementedTelemetryServiceServer struct{}
 
 func (UnimplementedTelemetryServiceServer) ReportAnomaly(context.Context, *AnomalyReportRequest) (*AnomalyReportResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ReportAnomaly not implemented")
+}
+func (UnimplementedTelemetryServiceServer) SendHeartbeat(context.Context, *HeartbeatRequest) (*HeartbeatResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method SendHeartbeat not implemented")
 }
 func (UnimplementedTelemetryServiceServer) mustEmbedUnimplementedTelemetryServiceServer() {}
 func (UnimplementedTelemetryServiceServer) testEmbeddedByValue()                          {}
@@ -104,6 +120,24 @@ func _TelemetryService_ReportAnomaly_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TelemetryService_SendHeartbeat_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(HeartbeatRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TelemetryServiceServer).SendHeartbeat(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TelemetryService_SendHeartbeat_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TelemetryServiceServer).SendHeartbeat(ctx, req.(*HeartbeatRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TelemetryService_ServiceDesc is the grpc.ServiceDesc for TelemetryService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -114,6 +148,10 @@ var TelemetryService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ReportAnomaly",
 			Handler:    _TelemetryService_ReportAnomaly_Handler,
+		},
+		{
+			MethodName: "SendHeartbeat",
+			Handler:    _TelemetryService_SendHeartbeat_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

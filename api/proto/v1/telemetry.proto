@@ -6,6 +6,7 @@ option go_package = "github.com/jbraconig/cortex-hdc/api/proto/v1;telemetryv1";
 
 service TelemetryService {
   rpc ReportAnomaly(AnomalyReportRequest) returns (AnomalyReportResponse);
+  rpc SendHeartbeat(HeartbeatRequest) returns (HeartbeatResponse);
 }
 
 message AnomalyReportRequest {
@@ -19,6 +20,17 @@ message AnomalyReportRequest {
 }
 
 message AnomalyReportResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message HeartbeatRequest {
+  string token = 1;
+  string node_id = 2;
+  int64 timestamp = 3;
+}
+
+message HeartbeatResponse {
   bool success = 1;
   string message = 2;
 }

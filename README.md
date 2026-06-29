@@ -87,10 +87,16 @@ If you want the engine to automatically train on the first run if the knowledge 
 - `--p2p-join` *(optional)*: Comma-separated seed addresses to join (e.g. `10.0.0.1:7946,10.0.0.2:7946`).
 - `--saas-endpoint` *(optional)*: SaaS Control Plane gRPC endpoint (e.g. `cloud.yourcompany.com:50051`).
 - `--saas-token` *(optional)*: Authentication token for the SaaS Control Plane.
+- `--heartbeat-interval` *(optional, default 60)*: Interval in seconds between node heartbeats (signals of life) sent to the SaaS Control Plane.
+- `--send-raw-logs` *(optional, default false)*: Enable sending raw log details of anomalies to the SaaS Control Plane.
 - `--verbose` *(optional)*: Prints all log lines, not just anomalies. Normal lines in gray, anomalies in red.
 
 ---
 
+### SaaS Integration & Heartbeats
+When connected to a SaaS Control Plane (via `--saas-endpoint` and authenticated with `--saas-token`), Cortex-HDC starts a background worker that sends periodic "heartbeats" (signals of life). This allows the Control Plane to monitor node health. If the node fails to send a heartbeat within the configured window, the SaaS platform marks the node as `offline` and dispatches alert notifications (email/webhooks).
+
+---
 
 ## 🐳 Docker Quick Start
 

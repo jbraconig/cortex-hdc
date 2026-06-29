@@ -100,6 +100,7 @@ func TestInferenceDecayBroadcast(t *testing.T) {
 		mSync,
 		nil,
 		false,
+		0,
 	)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
@@ -124,5 +125,69 @@ func TestInferenceDecayBroadcast(t *testing.T) {
 	}
 	if mSync.decayRates[0] != 0.01 {
 		t.Errorf("expected decay rate 0.01, got %f", mSync.decayRates[0])
+	}
+}
+
+type mockTelemetryClient struct {
+	mu             sync.Mutex
+	heartbeatsSent []string
+	hbChan         chan bool
+}
+
+func (m *mockTelemetryClient) ReportAnomaly(nodeID string, score float64, timestamp int64, hdcVector []byte, rawLog string, threshold float64) {}
+func (m *mockTelemetryClient) SendHeartbeat(nodeID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.heartbeatsSent = append(m.heartbeatsSent, nodeID)
+	if m.hbChan != nil {
+		select {
+		case m.hbChan <- true:
+		default:
+		}
+	}
+}
+func (m *mockTelemetryClient) Close() error { return nil }
+
+func TestInferenceHeartbeat(t *testing.T) {
+	kb := domain.NewKnowledgeBase()
+	hbChan := make(chan bool, 2)
+	teleClient := &mockTelemetryClient{hbChan: hbChan}
+
+	reader := &mockLogReader{
+		lines: []string{"test log line"},
+	}
+
+	inf := NewInference(
+		&mockEncoder{},
+		reader,
+		&mockNotifier{},
+		&mockPersistence{},
+		0.0,
+		false,
+		0.0,
+		nil,
+		teleClient,
+		false,
+		1, // 1 second interval
+	)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go func() {
+		_ = inf.Run(ctx, kb, []string{"dummy.log"}, 1, "")
+	}()
+
+	// Wait for at least one heartbeat
+	select {
+	case <-hbChan:
+	case <-time.After(3 * time.Second):
+		t.Fatal("timeout waiting for heartbeat")
+	}
+
+	teleClient.mu.Lock()
+	defer teleClient.mu.Unlock()
+	if len(teleClient.heartbeatsSent) == 0 {
+		t.Error("expected heartbeats to be sent")
 	}
 }
